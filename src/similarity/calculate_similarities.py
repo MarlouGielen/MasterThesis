@@ -2,7 +2,7 @@ import os
 import pickle
 import numpy as np
 from torch.nn import functional as F
-from concurrent.futures import ThreadPoolExecutor
+#from concurrent.futures import ThreadPoolExecutor
 
 from src.embedding import get_embedding, load_model_tokenizer
 
