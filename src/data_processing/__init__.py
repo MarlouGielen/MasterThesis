@@ -22,7 +22,4 @@ def load_data(data_path, input_path, output_path, images_path, stats_path, limit
     # Load cells, per notebook
     notebooks = load_cell_obj(notebooks, images_path)
 
-    # Save notebooks to json
-    
-
     return notebooks

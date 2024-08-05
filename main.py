@@ -119,7 +119,7 @@ data = "Kaggle" #TODO: for each map in data_map
 data_path = 'data/data_'+ data + '/'
 embedding_method = "UniXcoder"
 classification_method = "all"
-nb_limit=120
+nb_limit=5
 
 # Paths
 input_path = os.path.join(data_path, 'raw/')
@@ -140,7 +140,7 @@ notebooks = load_data(data_path, input_path, output_path, images_path, stats_pat
 class_count = classify_nb_cells(notebooks, method=classification_method)
 
 # Calculate similarities
-nb_output_path, cell_output_path, combi_output_path = calculate_similarities(notebooks, embedding_method, stats_path, all_nb=False, all_cells=True, combi=False)
+nb_output_path, cell_output_path, combi_output_path = calculate_similarities(notebooks, embedding_method, stats_path, all_nb=True, all_cells=True, combi=False)
 
 # Local LLM explanation
 explain_nb   = get_explanation_nb(notebooks, model, expl_path, temperature = 0.5, max_retries=5)
