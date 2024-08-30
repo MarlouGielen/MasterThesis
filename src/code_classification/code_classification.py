@@ -1,3 +1,4 @@
+import time
 from .hardcoded_keywords import get_keywords, classify_by_keywords   
 
 
@@ -12,7 +13,7 @@ def classify_nb_cells(notebooks, method="all"):
     :return class_probability (dict): dictionary with the class probabilities
     :return detailed_scores (dict): dictionary with the detailed scores
     """
-
+    t0 = time.time()
     class_count = {
         "Environment": 0,
         "Data_Extraction": 0,
@@ -62,6 +63,8 @@ def classify_nb_cells(notebooks, method="all"):
                 cell.class_probability = class_probability
                 cell.detailed_scores = detailed_scores
 
+                # store all keywords in detailed_scores into 'keywords
+
             nb.class_count = class_count_nb
                 
         return class_count
@@ -79,6 +82,8 @@ def classify_nb_cells(notebooks, method="all"):
     else:
         raise ValueError("Method not recognized. Please use 'hardcoded', 'sklearn', 'all', 'ML' or 'LLM'.")
         pass
+    
+    print(f"Total classification time: {time.time()-t0:.2f} seconds")
 
     return class_count
 

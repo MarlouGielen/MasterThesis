@@ -1,0 +1,1541 @@
+{
+    "nb_idx": 36,
+    "nb_name": "d0036",
+    "filename": "d36.ipynb",
+    "filepath": "data/data_Kaggle/raw/d36.ipynb",
+    "source": "The point of this kernel is to show that the aim of this competition is to learn and not to get a perfect score.  \n import numpy as np\nimport pandas as pd\n\nimport os\nimport re\nimport warnings\nprint(os.listdir(\"../input\")) \n import io\nimport requests\nurl=\"https://github.com/thisisjasonjafari/my-datascientise-handcode/raw/master/005-datavisualization/titanic.csv\"\ns=requests.get(url).content\nc=pd.read_csv(io.StringIO(s.decode('utf-8')))\n \ntest_data_with_labels = c\ntest_data = pd.read_csv('../input/titanic/test.csv') \n test_data_with_labels.head() \n test_data.head() \n warnings.filterwarnings('ignore') \n for i, name in enumerate(test_data_with_labels['name']):\n    if '\"' in name:\n        test_data_with_labels['name'][i] = re.sub('\"', '', name)\n        \nfor i, name in enumerate(test_data['Name']):\n    if '\"' in name:\n        test_data['Name'][i] = re.sub('\"', '', name) \n survived = []\n\nfor name in test_data['Name']:\n    survived.append(int(test_data_with_labels.loc[test_data_with_labels['name'] == name]['survived'].values[-1])) \n submission = pd.read_csv('../input/titanic/gender_submission.csv')\nsubmission['Survived'] = survived\nsubmission.to_csv('submission.csv', index=False) \n submission.head() \n But try not to cheat \nthis note book is only for educational",
+    "code_source": "import numpy as np\nimport pandas as pd\n\nimport os\nimport re\nimport warnings\nprint(os.listdir(\"../input\")) \n import io\nimport requests\nurl=\"https://github.com/thisisjasonjafari/my-datascientise-handcode/raw/master/005-datavisualization/titanic.csv\"\ns=requests.get(url).content\nc=pd.read_csv(io.StringIO(s.decode('utf-8')))\n \ntest_data_with_labels = c\ntest_data = pd.read_csv('../input/titanic/test.csv') \n test_data_with_labels.head() \n test_data.head() \n warnings.filterwarnings('ignore') \n for i, name in enumerate(test_data_with_labels['name']):\n    if '\"' in name:\n        test_data_with_labels['name'][i] = re.sub('\"', '', name)\n        \nfor i, name in enumerate(test_data['Name']):\n    if '\"' in name:\n        test_data['Name'][i] = re.sub('\"', '', name) \n survived = []\n\nfor name in test_data['Name']:\n    survived.append(int(test_data_with_labels.loc[test_data_with_labels['name'] == name]['survived'].values[-1])) \n submission = pd.read_csv('../input/titanic/gender_submission.csv')\nsubmission['Survived'] = survived\nsubmission.to_csv('submission.csv', index=False) \n submission.head()",
+    "markdown_source": "The point of this kernel is to show that the aim of this competition is to learn and not to get a perfect score.  \n But try not to cheat \nthis note book is only for educational",
+    "n_cells": 11,
+    "n_code_cells": 9,
+    "n_markdown_cells": 2,
+    "n_raw_cells": 0,
+    "n_outputs": 9,
+    "r_code_cells": 0.8181818181818182,
+    "r_markdown_cells": 0.18181818181818182,
+    "r_raw_cells": 0.0,
+    "r_outputs": 1.0,
+    "n_exceptions": 0,
+    "r_exceptions": 0.0,
+    "n_lines": 36,
+    "n_lines_code": 33,
+    "n_lines_markdown": 3,
+    "lines_per_cell": [
+        1,
+        7,
+        8,
+        1,
+        1,
+        1,
+        7,
+        4,
+        3,
+        1,
+        2
+    ],
+    "lines_per_code_cell": [
+        7,
+        8,
+        1,
+        1,
+        1,
+        7,
+        4,
+        3,
+        1
+    ],
+    "lines_per_markdown_cell": [
+        1,
+        2
+    ],
+    "ave_lines_per_cell": 3.272727272727273,
+    "ave_lines_per_code_cell": 3.6666666666666665,
+    "ave_lines_per_markdown_cell": 1.5,
+    "max_lines_per_cell": 8,
+    "max_lines_per_code_cell": 8,
+    "max_lines_per_markdown_cell": 2,
+    "min_lines_per_cell": 1,
+    "min_lines_per_code_cell": 1,
+    "min_lines_per_markdown_cell": 1,
+    "n_chars": 1242,
+    "n_chars_code": 1069,
+    "n_chars_markdown": 173,
+    "chars_per_cell": [
+        113,
+        105,
+        294,
+        28,
+        16,
+        33,
+        268,
+        159,
+        149,
+        17,
+        60
+    ],
+    "chars_per_code_cell": [
+        105,
+        294,
+        28,
+        16,
+        33,
+        268,
+        159,
+        149,
+        17
+    ],
+    "chars_per_markdown_cell": [
+        113,
+        60
+    ],
+    "ave_chars_per_line": 34.5,
+    "ave_chars_per_cell": 112.9090909090909,
+    "ave_chars_per_code_cell": 118.77777777777777,
+    "ave_chars_per_markdown_cell": 86.5,
+    "max_chars_per_cell": 294,
+    "max_chars_per_code_cell": 294,
+    "max_chars_per_markdownell": 113,
+    "min_chars_per_cell": 16,
+    "min_chars_per_code_cell": 16,
+    "min_chars_per_markdown_cell": 60,
+    "r_lines_code": 0.9166666666666666,
+    "r_lines_markdown": 0.08333333333333333,
+    "r_chars_markdown": 0.1392914653784219,
+    "r_chars_code": 0.8607085346215781,
+    "all_cells": [
+        {
+            "source": "The point of this kernel is to show that the aim of this competition is to learn and not to get a perfect score. ",
+            "mc_idx": 0,
+            "nb_idx": 36,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "import numpy as np\nimport pandas as pd\n\nimport os\nimport re\nimport warnings\nprint(os.listdir(\"../input\"))",
+            "mc_idx": 1,
+            "nb_idx": 36,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "import ": 5
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    0,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "['titanic', 'titaniccsv', 'titanic-subset']\n"
+                    ]
+                },
+                "mc_idx": 1,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 0,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "import io\nimport requests\nurl=\"https://github.com/thisisjasonjafari/my-datascientise-handcode/raw/master/005-datavisualization/titanic.csv\"\ns=requests.get(url).content\nc=pd.read_csv(io.StringIO(s.decode('utf-8')))\n \ntest_data_with_labels = c\ntest_data = pd.read_csv('../input/titanic/test.csv')",
+            "mc_idx": 2,
+            "nb_idx": 36,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.45,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "import ": 20
+                },
+                "Data_Extraction": {
+                    "read_csv": 4,
+                    "pd.read_": 4,
+                    "requests.get": 1
+                },
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    1,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 2,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 1,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "test_data_with_labels.head()",
+            "mc_idx": 3,
+            "nb_idx": 36,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    2,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   pclass  survived                                             name     sex  \\\n0       1         1                    Allen, Miss. Elisabeth Walton  female   \n1       1         1                   Allison, Master. Hudson Trevor    male   \n2       1         0                     Allison, Miss. Helen Loraine  female   \n3       1         0             Allison, Mr. Hudson Joshua Creighton    male   \n4       1         0  Allison, Mrs. Hudson J C (Bessie Waldo Daniels)  female   \n\n     age  sibsp  parch  ticket      fare    cabin embarked boat   body  \\\n0  29.00      0      0   24160  211.3375       B5        S    2    NaN   \n1   0.92      1      2  113781  151.5500  C22 C26        S   11    NaN   \n2   2.00      1      2  113781  151.5500  C22 C26        S  NaN    NaN   \n3  30.00      1      2  113781  151.5500  C22 C26        S  NaN  135.0   \n4  25.00      1      2  113781  151.5500  C22 C26        S  NaN    NaN   \n\n                         home.dest  \n0                     St Louis, MO  \n1  Montreal, PQ / Chesterville, ON  \n2  Montreal, PQ / Chesterville, ON  \n3  Montreal, PQ / Chesterville, ON  \n4  Montreal, PQ / Chesterville, ON  "
+                    ]
+                },
+                "mc_idx": 3,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 2,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "test_data.head()",
+            "mc_idx": 4,
+            "nb_idx": 36,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    3,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   PassengerId  Pclass                                          Name     Sex  \\\n0          892       3                              Kelly, Mr. James    male   \n1          893       3              Wilkes, Mrs. James (Ellen Needs)  female   \n2          894       2                     Myles, Mr. Thomas Francis    male   \n3          895       3                              Wirz, Mr. Albert    male   \n4          896       3  Hirvonen, Mrs. Alexander (Helga E Lindqvist)  female   \n\n    Age  SibSp  Parch   Ticket     Fare Cabin Embarked  \n0  34.5      0      0   330911   7.8292   NaN        Q  \n1  47.0      1      0   363272   7.0000   NaN        S  \n2  62.0      0      0   240276   9.6875   NaN        Q  \n3  27.0      0      0   315154   8.6625   NaN        S  \n4  22.0      1      1  3101298  12.2875   NaN        S  "
+                    ]
+                },
+                "mc_idx": 4,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 3,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "warnings.filterwarnings('ignore')",
+            "mc_idx": 5,
+            "nb_idx": 36,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    4,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 5,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 4,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "for i, name in enumerate(test_data_with_labels['name']):\n    if '\"' in name:\n        test_data_with_labels['name'][i] = re.sub('\"', '', name)\n        \nfor i, name in enumerate(test_data['Name']):\n    if '\"' in name:\n        test_data['Name'][i] = re.sub('\"', '', name)",
+            "mc_idx": 6,
+            "nb_idx": 36,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    5,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 6,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 5,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "survived = []\n\nfor name in test_data['Name']:\n    survived.append(int(test_data_with_labels.loc[test_data_with_labels['name'] == name]['survived'].values[-1]))",
+            "mc_idx": 7,
+            "nb_idx": 36,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    6,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 7,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 6,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "submission = pd.read_csv('../input/titanic/gender_submission.csv')\nsubmission['Survived'] = survived\nsubmission.to_csv('submission.csv', index=False)",
+            "mc_idx": 8,
+            "nb_idx": 36,
+            "embedding": {},
+            "classification": "Data_Extraction",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 1.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.5,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {
+                    "read_csv": 2,
+                    "pd.read_": 2
+                },
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {
+                    ".to_csv(": 1,
+                    "to_csv": 1
+                },
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    7,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 8,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 7,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "submission.head()",
+            "mc_idx": 9,
+            "nb_idx": 36,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    8,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   PassengerId  Survived\n0          892         0\n1          893         1\n2          894         0\n3          895         0\n4          896         1"
+                    ]
+                },
+                "mc_idx": 9,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 8,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "But try not to cheat \nthis note book is only for educational",
+            "mc_idx": 10,
+            "nb_idx": 36,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        }
+    ],
+    "code_cells": [
+        {
+            "source": "import numpy as np\nimport pandas as pd\n\nimport os\nimport re\nimport warnings\nprint(os.listdir(\"../input\"))",
+            "mc_idx": 1,
+            "nb_idx": 36,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "import ": 5
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    0,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "['titanic', 'titaniccsv', 'titanic-subset']\n"
+                    ]
+                },
+                "mc_idx": 1,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 0,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "import io\nimport requests\nurl=\"https://github.com/thisisjasonjafari/my-datascientise-handcode/raw/master/005-datavisualization/titanic.csv\"\ns=requests.get(url).content\nc=pd.read_csv(io.StringIO(s.decode('utf-8')))\n \ntest_data_with_labels = c\ntest_data = pd.read_csv('../input/titanic/test.csv')",
+            "mc_idx": 2,
+            "nb_idx": 36,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.45,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "import ": 20
+                },
+                "Data_Extraction": {
+                    "read_csv": 4,
+                    "pd.read_": 4,
+                    "requests.get": 1
+                },
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    1,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 2,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 1,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "test_data_with_labels.head()",
+            "mc_idx": 3,
+            "nb_idx": 36,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    2,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   pclass  survived                                             name     sex  \\\n0       1         1                    Allen, Miss. Elisabeth Walton  female   \n1       1         1                   Allison, Master. Hudson Trevor    male   \n2       1         0                     Allison, Miss. Helen Loraine  female   \n3       1         0             Allison, Mr. Hudson Joshua Creighton    male   \n4       1         0  Allison, Mrs. Hudson J C (Bessie Waldo Daniels)  female   \n\n     age  sibsp  parch  ticket      fare    cabin embarked boat   body  \\\n0  29.00      0      0   24160  211.3375       B5        S    2    NaN   \n1   0.92      1      2  113781  151.5500  C22 C26        S   11    NaN   \n2   2.00      1      2  113781  151.5500  C22 C26        S  NaN    NaN   \n3  30.00      1      2  113781  151.5500  C22 C26        S  NaN  135.0   \n4  25.00      1      2  113781  151.5500  C22 C26        S  NaN    NaN   \n\n                         home.dest  \n0                     St Louis, MO  \n1  Montreal, PQ / Chesterville, ON  \n2  Montreal, PQ / Chesterville, ON  \n3  Montreal, PQ / Chesterville, ON  \n4  Montreal, PQ / Chesterville, ON  "
+                    ]
+                },
+                "mc_idx": 3,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 2,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "test_data.head()",
+            "mc_idx": 4,
+            "nb_idx": 36,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    3,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   PassengerId  Pclass                                          Name     Sex  \\\n0          892       3                              Kelly, Mr. James    male   \n1          893       3              Wilkes, Mrs. James (Ellen Needs)  female   \n2          894       2                     Myles, Mr. Thomas Francis    male   \n3          895       3                              Wirz, Mr. Albert    male   \n4          896       3  Hirvonen, Mrs. Alexander (Helga E Lindqvist)  female   \n\n    Age  SibSp  Parch   Ticket     Fare Cabin Embarked  \n0  34.5      0      0   330911   7.8292   NaN        Q  \n1  47.0      1      0   363272   7.0000   NaN        S  \n2  62.0      0      0   240276   9.6875   NaN        Q  \n3  27.0      0      0   315154   8.6625   NaN        S  \n4  22.0      1      1  3101298  12.2875   NaN        S  "
+                    ]
+                },
+                "mc_idx": 4,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 3,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "warnings.filterwarnings('ignore')",
+            "mc_idx": 5,
+            "nb_idx": 36,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    4,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 5,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 4,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "for i, name in enumerate(test_data_with_labels['name']):\n    if '\"' in name:\n        test_data_with_labels['name'][i] = re.sub('\"', '', name)\n        \nfor i, name in enumerate(test_data['Name']):\n    if '\"' in name:\n        test_data['Name'][i] = re.sub('\"', '', name)",
+            "mc_idx": 6,
+            "nb_idx": 36,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    5,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 6,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 5,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "survived = []\n\nfor name in test_data['Name']:\n    survived.append(int(test_data_with_labels.loc[test_data_with_labels['name'] == name]['survived'].values[-1]))",
+            "mc_idx": 7,
+            "nb_idx": 36,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    6,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 7,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 6,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "submission = pd.read_csv('../input/titanic/gender_submission.csv')\nsubmission['Survived'] = survived\nsubmission.to_csv('submission.csv', index=False)",
+            "mc_idx": 8,
+            "nb_idx": 36,
+            "embedding": {},
+            "classification": "Data_Extraction",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 1.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.5,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {
+                    "read_csv": 2,
+                    "pd.read_": 2
+                },
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {
+                    ".to_csv(": 1,
+                    "to_csv": 1
+                },
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    7,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 8,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 7,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "submission.head()",
+            "mc_idx": 9,
+            "nb_idx": 36,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    8,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   PassengerId  Survived\n0          892         0\n1          893         1\n2          894         0\n3          895         0\n4          896         1"
+                    ]
+                },
+                "mc_idx": 9,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 8,
+                "o_idx": 0
+            }
+        }
+    ],
+    "markdown_cells": [
+        {
+            "source": "The point of this kernel is to show that the aim of this competition is to learn and not to get a perfect score. ",
+            "mc_idx": 0,
+            "nb_idx": 36,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "But try not to cheat \nthis note book is only for educational",
+            "mc_idx": 10,
+            "nb_idx": 36,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        }
+    ],
+    "sim_matrix": [],
+    "cell_sim_matrix": [],
+    "nb_order": [],
+    "summary_data_VA": null
+}

@@ -1,0 +1,3429 @@
+{
+    "nb_idx": 67,
+    "nb_name": "d0067",
+    "filename": "titanic-leaderboard-a-score-0-8-is-great.ipynb",
+    "filepath": "data/data_Kaggle/raw/titanic-leaderboard-a-score-0-8-is-great.ipynb",
+    "source": "### Titanic leaderboard: a score > 0.8 is great!\n**Author: [Carl McBride Ellis](https://www.kaggle.com/carlmcbrideellis)** ([LinkedIn](https://www.linkedin.com/in/carl-mcbride-ellis/))\n\nThe objective of this notebook is to shed some light on the question of *How good is my score in the Titanic competition?*\nWe all know the feeling of clicking on the '*Jump to your position on the leaderboard*', and we get a score of 0.7xxx (well, as least I do) then the next thing we do is scroll up and see all these 1.00000 results and we feel that \nwe are doing something wrong. \n\nThe first thing to say is that these *1.00000* submissions are cheating! Basically it works because the *hidden* data against which your submission is tested is actually [*public*](https://en.wikipedia.org/wiki/Passengers_of_the_RMS_Titanic#Passenger_list) data, which can be found on Wikipedia, etc. (it is the *Titanic* after all). In other words, if you hand-craft the submission file you will score a 1, with no machine learning required; hardly any need for python or R code, no need for trying new methods and learning new techniques, etc. etc.\n\nWhat is the point in doing that? **I really don't know...**\n\nOk, so, how good is my score? First we shall load in a snapshot of the leaderboard. This data can be downloaded directly from [the Titanic leaderboard page ](https://www.kaggle.com/c/3136/publicleaderboarddata.zip) where it says Raw Data.\n \n #!/usr/bin/python3\n# coding=utf-8\n#===========================================================================\n# load up the libraries\n#===========================================================================\nimport pandas  as pd\nimport matplotlib.pyplot as plt \n Let us read in a snapshot of the leaderboard as of May 2020 \n titanic_lb = pd.read_csv('/kaggle/input/titanic-publicleaderboarddata-4v2020/publicleaderboarddata/titanic-publicleaderboard.csv',parse_dates=['SubmissionDate']) \n titanic_lb.shape \n We can see that at the time there were over 40 thousand teams on the leaderboard \n titanic_lb[\"year\"] = titanic_lb[\"SubmissionDate\"].dt.year\ntitanic_lb[\"year\"].value_counts() \n and we can see that the vast majority of the submissions were from the year 2020. \n #===========================================================================\n# make a frequency table\n#===========================================================================\nfrom collections import Counter\ntitanic_ft = Counter(titanic_lb[\"Score\"]) \n Firstly, we shall make a frequency plot of the *whole* leaderboard to get an overall feeling for the data: \n plt.figure(figsize=(16,6))\nplt.xlabel  (\"Score\")\nplt.ylabel  (\"Frequency\")\nplt.xlim((0.0,1.0))\nplt.bar(titanic_ft.keys(), titanic_ft.values(), width=0.004)\nplt.show() \n We can see that the majority of the scores lie between `0.6` and `0.85`, so we shall zoom in on that area: \n plt.figure(figsize=(16,6))\nplt.xlabel  (\"Score\")\nplt.ylabel  (\"Frequency\")\nplt.xlim((0.6,0.85))\nplt.bar(titanic_ft.keys(), titanic_ft.values(), width=0.004)\nplt.show() \n We can clearly see a distribution of scores, and in particular, three interesting peaks.\n### The 0.76555 peak:\nThis is by far the highest peak and corresponds to correctly classifying 320 results. This peak is due to people submitting the default `gender_submission.csv` file provided by the competition. The submission of this file alone represents more than 20% of the results that are seen on the leaderboard. This is not entirely surprising, given that the excellent [Titanic Tutorial](https://www.kaggle.com/alexisbcook/titanic-tutorial) by Alexis Cook suggests doing this as an exercise. \n # find the maximum value (i.e. most frequent score) \n# and its corresponding key\nmaximum = max(titanic_ft, key=titanic_ft.get)\n# calculate the percentage of submissions that have this score\npercentage_max_score = ((100/titanic_lb.shape[0])*titanic_ft[maximum])\nprint(\"Percentage of people with the most frequent score is:\",\n      str(round(percentage_max_score, 2)),\"%\") \n ### The 0.62679 peak:\nThis peak corresponds to people submitting the [*'all dead'* submission file](https://www.kaggle.com/carlmcbrideellis/titanic-all-zeros-csv-file), in other words, in the submission file all `PassengerId` are assigned a zero, corresponding to no survivors. If we multiply `0.62200` by the number of entries in the file, `418`, shows us that the simple *all dead* file actually correctly guesses 260 data points. This in some way is a stark reminder of the tragedy that was the Titanic.\n### The 0.77511 peak:\nMost classifiers will give this result if very little feature engineering or hyperparameter tuning has been performed. The score corresponds to correctly classifying 324 passengers. For example, the script for the random forest model in the aforementioned *Titanic Tutorial* notebook, in conjunction with the parameters which were provided, returns this score of 0.77511. Indeed this score can be [obtained via a simple model](https://www.kaggle.com/code/carlmcbrideellis/kiss-small-and-simple-titanic-models) as a result of predicting that only women from 1st and 2nd class survive.\n### The 1.00000 peak:\nThis is a most disappointing peak, as we have mentioned earlier, it is the result of cheating.\n\nWe can make a count of the number of these unfair submissions, currently there are over 100 of them: \n # print the number of 'perfect' solutions\nprint(\"Number of 'perfect' (1.00000) submissions is: %i\" % titanic_ft[1.0]) \n # So, how great is 0.8?\nNow, to answer *How good is a score greater than 0.8?* \n # sum the number of submissions with a score > 0.8\nsum = 0\nfor key in titanic_ft:\n    if key > 0.8:\n        sum = sum + titanic_ft[key]\nprint(\"Number of submissions whose score is greater than 0.8 is:\",sum) \n we shall now remove the 'perfect' scores from our tally, as they are basically rubbish: \n # take away the 1.00000 bin\nnumber_gt_8_correct = sum - titanic_ft[1.0]\nprint(\"less those with a perfect 1.00000 is:\", number_gt_8_correct) \n percentage_gt_eight = ((100/titanic_lb.shape[0])*number_gt_8_correct)\nprint(\"Submissions with a score greater than 0.8 are in the top\", \n      str(round(percentage_gt_eight, 2)),\"%\") \n #### Answer: a score > 0.8 is well within the top 6%, and more than good enough for a gold medal\n### Now that is great!\n#### PS: If you are wondering, a score of above 0.785 would sufficient land yourself a silver medal.\n\n### Honourable mention: A score of 0.00000\nOccasionally people obtain a score of `0.00000` no matter what they do. This is *almost certainly* caused by submitting a `submission.csv` for which the `Survived` column is made up of floating point numbers (i.e. `0.0 and 1.0`) rather than integers (`0` and `1`). This can be easily remedied by simply passing them through `.astype(int)` before writing.\n\n<br><font color='red'>**Note**: As of the 1st of July 2020 there is now only one unified leaderboard, calculated using *all* the data. This slightly changes some of the 'old' scores. See</font> [\"Getting Started Competitions - 100% Public Leaderboard\"](https://www.kaggle.com/c/titanic/discussion/163366) \n<font color='red'>for details.</font>. \n\n## 2023 Update\n\nWith the new 100% Public Leaderboard we have\n* `gender_submission.csv` score: 0.76555\n* \"all dead\" score: 0.62201\n\nLet us take a quick look at the situation in 2023 with a more recent snapshot of the 2 month rolling leaderboard \n titanic_2023_data = pd.read_csv(\"/kaggle/input/titanic-publicleaderboarddata-4v2020/titanic-publicleaderboard-2023-12-21.csv\") \n titanic_ft_2023 = Counter(titanic_2023_data[\"Score\"])\n\nplt.figure(figsize=(16,6))\nplt.xlabel  (\"Score\")\nplt.ylabel  (\"Frequency\")\nplt.xlim((0.70,0.85))\nplt.bar(titanic_ft_2023.keys(), titanic_ft_2023.values(), width=0.002)\nplt.show() \n titanic_2023_data[\"Score\"].value_counts().head(1) \n We can see that the 0.77511 is now by far the most frequent score, and submitting the `gender_submission.csv` file seems to have  fallen out of favour.",
+    "code_source": "#!/usr/bin/python3\n# coding=utf-8\n#===========================================================================\n# load up the libraries\n#===========================================================================\nimport pandas  as pd\nimport matplotlib.pyplot as plt \n titanic_lb = pd.read_csv('/kaggle/input/titanic-publicleaderboarddata-4v2020/publicleaderboarddata/titanic-publicleaderboard.csv',parse_dates=['SubmissionDate']) \n titanic_lb.shape \n titanic_lb[\"year\"] = titanic_lb[\"SubmissionDate\"].dt.year\ntitanic_lb[\"year\"].value_counts() \n #===========================================================================\n# make a frequency table\n#===========================================================================\nfrom collections import Counter\ntitanic_ft = Counter(titanic_lb[\"Score\"]) \n plt.figure(figsize=(16,6))\nplt.xlabel  (\"Score\")\nplt.ylabel  (\"Frequency\")\nplt.xlim((0.0,1.0))\nplt.bar(titanic_ft.keys(), titanic_ft.values(), width=0.004)\nplt.show() \n plt.figure(figsize=(16,6))\nplt.xlabel  (\"Score\")\nplt.ylabel  (\"Frequency\")\nplt.xlim((0.6,0.85))\nplt.bar(titanic_ft.keys(), titanic_ft.values(), width=0.004)\nplt.show() \n # find the maximum value (i.e. most frequent score) \n# and its corresponding key\nmaximum = max(titanic_ft, key=titanic_ft.get)\n# calculate the percentage of submissions that have this score\npercentage_max_score = ((100/titanic_lb.shape[0])*titanic_ft[maximum])\nprint(\"Percentage of people with the most frequent score is:\",\n      str(round(percentage_max_score, 2)),\"%\") \n # print the number of 'perfect' solutions\nprint(\"Number of 'perfect' (1.00000) submissions is: %i\" % titanic_ft[1.0]) \n # sum the number of submissions with a score > 0.8\nsum = 0\nfor key in titanic_ft:\n    if key > 0.8:\n        sum = sum + titanic_ft[key]\nprint(\"Number of submissions whose score is greater than 0.8 is:\",sum) \n # take away the 1.00000 bin\nnumber_gt_8_correct = sum - titanic_ft[1.0]\nprint(\"less those with a perfect 1.00000 is:\", number_gt_8_correct) \n percentage_gt_eight = ((100/titanic_lb.shape[0])*number_gt_8_correct)\nprint(\"Submissions with a score greater than 0.8 are in the top\", \n      str(round(percentage_gt_eight, 2)),\"%\") \n titanic_2023_data = pd.read_csv(\"/kaggle/input/titanic-publicleaderboarddata-4v2020/titanic-publicleaderboard-2023-12-21.csv\") \n titanic_ft_2023 = Counter(titanic_2023_data[\"Score\"])\n\nplt.figure(figsize=(16,6))\nplt.xlabel  (\"Score\")\nplt.ylabel  (\"Frequency\")\nplt.xlim((0.70,0.85))\nplt.bar(titanic_ft_2023.keys(), titanic_ft_2023.values(), width=0.002)\nplt.show() \n titanic_2023_data[\"Score\"].value_counts().head(1)",
+    "markdown_source": "### Titanic leaderboard: a score > 0.8 is great!\n**Author: [Carl McBride Ellis](https://www.kaggle.com/carlmcbrideellis)** ([LinkedIn](https://www.linkedin.com/in/carl-mcbride-ellis/))\n\nThe objective of this notebook is to shed some light on the question of *How good is my score in the Titanic competition?*\nWe all know the feeling of clicking on the '*Jump to your position on the leaderboard*', and we get a score of 0.7xxx (well, as least I do) then the next thing we do is scroll up and see all these 1.00000 results and we feel that \nwe are doing something wrong. \n\nThe first thing to say is that these *1.00000* submissions are cheating! Basically it works because the *hidden* data against which your submission is tested is actually [*public*](https://en.wikipedia.org/wiki/Passengers_of_the_RMS_Titanic#Passenger_list) data, which can be found on Wikipedia, etc. (it is the *Titanic* after all). In other words, if you hand-craft the submission file you will score a 1, with no machine learning required; hardly any need for python or R code, no need for trying new methods and learning new techniques, etc. etc.\n\nWhat is the point in doing that? **I really don't know...**\n\nOk, so, how good is my score? First we shall load in a snapshot of the leaderboard. This data can be downloaded directly from [the Titanic leaderboard page ](https://www.kaggle.com/c/3136/publicleaderboarddata.zip) where it says Raw Data.\n \n Let us read in a snapshot of the leaderboard as of May 2020 \n We can see that at the time there were over 40 thousand teams on the leaderboard \n and we can see that the vast majority of the submissions were from the year 2020. \n Firstly, we shall make a frequency plot of the *whole* leaderboard to get an overall feeling for the data: \n We can see that the majority of the scores lie between `0.6` and `0.85`, so we shall zoom in on that area: \n We can clearly see a distribution of scores, and in particular, three interesting peaks.\n### The 0.76555 peak:\nThis is by far the highest peak and corresponds to correctly classifying 320 results. This peak is due to people submitting the default `gender_submission.csv` file provided by the competition. The submission of this file alone represents more than 20% of the results that are seen on the leaderboard. This is not entirely surprising, given that the excellent [Titanic Tutorial](https://www.kaggle.com/alexisbcook/titanic-tutorial) by Alexis Cook suggests doing this as an exercise. \n ### The 0.62679 peak:\nThis peak corresponds to people submitting the [*'all dead'* submission file](https://www.kaggle.com/carlmcbrideellis/titanic-all-zeros-csv-file), in other words, in the submission file all `PassengerId` are assigned a zero, corresponding to no survivors. If we multiply `0.62200` by the number of entries in the file, `418`, shows us that the simple *all dead* file actually correctly guesses 260 data points. This in some way is a stark reminder of the tragedy that was the Titanic.\n### The 0.77511 peak:\nMost classifiers will give this result if very little feature engineering or hyperparameter tuning has been performed. The score corresponds to correctly classifying 324 passengers. For example, the script for the random forest model in the aforementioned *Titanic Tutorial* notebook, in conjunction with the parameters which were provided, returns this score of 0.77511. Indeed this score can be [obtained via a simple model](https://www.kaggle.com/code/carlmcbrideellis/kiss-small-and-simple-titanic-models) as a result of predicting that only women from 1st and 2nd class survive.\n### The 1.00000 peak:\nThis is a most disappointing peak, as we have mentioned earlier, it is the result of cheating.\n\nWe can make a count of the number of these unfair submissions, currently there are over 100 of them: \n # So, how great is 0.8?\nNow, to answer *How good is a score greater than 0.8?* \n we shall now remove the 'perfect' scores from our tally, as they are basically rubbish: \n #### Answer: a score > 0.8 is well within the top 6%, and more than good enough for a gold medal\n### Now that is great!\n#### PS: If you are wondering, a score of above 0.785 would sufficient land yourself a silver medal.\n\n### Honourable mention: A score of 0.00000\nOccasionally people obtain a score of `0.00000` no matter what they do. This is *almost certainly* caused by submitting a `submission.csv` for which the `Survived` column is made up of floating point numbers (i.e. `0.0 and 1.0`) rather than integers (`0` and `1`). This can be easily remedied by simply passing them through `.astype(int)` before writing.\n\n<br><font color='red'>**Note**: As of the 1st of July 2020 there is now only one unified leaderboard, calculated using *all* the data. This slightly changes some of the 'old' scores. See</font> [\"Getting Started Competitions - 100% Public Leaderboard\"](https://www.kaggle.com/c/titanic/discussion/163366) \n<font color='red'>for details.</font>. \n\n## 2023 Update\n\nWith the new 100% Public Leaderboard we have\n* `gender_submission.csv` score: 0.76555\n* \"all dead\" score: 0.62201\n\nLet us take a quick look at the situation in 2023 with a more recent snapshot of the 2 month rolling leaderboard \n We can see that the 0.77511 is now by far the most frequent score, and submitting the `gender_submission.csv` file seems to have  fallen out of favour.",
+    "n_cells": 27,
+    "n_code_cells": 15,
+    "n_markdown_cells": 12,
+    "n_raw_cells": 0,
+    "n_outputs": 15,
+    "r_code_cells": 0.5555555555555556,
+    "r_markdown_cells": 0.4444444444444444,
+    "r_raw_cells": 0.0,
+    "r_outputs": 1.0,
+    "n_exceptions": 0,
+    "r_exceptions": 0.0,
+    "n_lines": 109,
+    "n_lines_code": 59,
+    "n_lines_markdown": 50,
+    "lines_per_cell": [
+        13,
+        7,
+        1,
+        1,
+        1,
+        1,
+        2,
+        1,
+        5,
+        1,
+        6,
+        1,
+        6,
+        3,
+        7,
+        8,
+        2,
+        2,
+        6,
+        1,
+        3,
+        3,
+        17,
+        1,
+        8,
+        1,
+        1
+    ],
+    "lines_per_code_cell": [
+        7,
+        1,
+        1,
+        2,
+        5,
+        6,
+        6,
+        7,
+        2,
+        6,
+        3,
+        3,
+        1,
+        8,
+        1
+    ],
+    "lines_per_markdown_cell": [
+        13,
+        1,
+        1,
+        1,
+        1,
+        1,
+        3,
+        8,
+        2,
+        1,
+        17,
+        1
+    ],
+    "ave_lines_per_cell": 4.037037037037037,
+    "ave_lines_per_code_cell": 3.933333333333333,
+    "ave_lines_per_markdown_cell": 4.166666666666667,
+    "max_lines_per_cell": 17,
+    "max_lines_per_code_cell": 8,
+    "max_lines_per_markdown_cell": 17,
+    "min_lines_per_cell": 1,
+    "min_lines_per_code_cell": 1,
+    "min_lines_per_markdown_cell": 1,
+    "n_chars": 7846,
+    "n_chars_code": 2539,
+    "n_chars_markdown": 5307,
+    "chars_per_cell": [
+        1424,
+        264,
+        59,
+        161,
+        16,
+        80,
+        91,
+        81,
+        252,
+        106,
+        166,
+        106,
+        167,
+        593,
+        370,
+        1331,
+        117,
+        78,
+        206,
+        87,
+        139,
+        182,
+        1211,
+        126,
+        233,
+        49,
+        151
+    ],
+    "chars_per_code_cell": [
+        264,
+        161,
+        16,
+        91,
+        252,
+        166,
+        167,
+        370,
+        117,
+        206,
+        139,
+        182,
+        126,
+        233,
+        49
+    ],
+    "chars_per_markdown_cell": [
+        1424,
+        59,
+        80,
+        81,
+        106,
+        106,
+        593,
+        1331,
+        78,
+        87,
+        1211,
+        151
+    ],
+    "ave_chars_per_line": 71.98165137614679,
+    "ave_chars_per_cell": 290.5925925925926,
+    "ave_chars_per_code_cell": 169.26666666666668,
+    "ave_chars_per_markdown_cell": 442.25,
+    "max_chars_per_cell": 1424,
+    "max_chars_per_code_cell": 370,
+    "max_chars_per_markdownell": 1424,
+    "min_chars_per_cell": 16,
+    "min_chars_per_code_cell": 16,
+    "min_chars_per_markdown_cell": 59,
+    "r_lines_code": 0.5412844036697247,
+    "r_lines_markdown": 0.45871559633027525,
+    "r_chars_markdown": 0.6763956156003059,
+    "r_chars_code": 0.32360438439969413,
+    "all_cells": [
+        {
+            "source": "### Titanic leaderboard: a score > 0.8 is great!\n**Author: [Carl McBride Ellis](https://www.kaggle.com/carlmcbrideellis)** ([LinkedIn](https://www.linkedin.com/in/carl-mcbride-ellis/))\n\nThe objective of this notebook is to shed some light on the question of *How good is my score in the Titanic competition?*\nWe all know the feeling of clicking on the '*Jump to your position on the leaderboard*', and we get a score of 0.7xxx (well, as least I do) then the next thing we do is scroll up and see all these 1.00000 results and we feel that \nwe are doing something wrong. \n\nThe first thing to say is that these *1.00000* submissions are cheating! Basically it works because the *hidden* data against which your submission is tested is actually [*public*](https://en.wikipedia.org/wiki/Passengers_of_the_RMS_Titanic#Passenger_list) data, which can be found on Wikipedia, etc. (it is the *Titanic* after all). In other words, if you hand-craft the submission file you will score a 1, with no machine learning required; hardly any need for python or R code, no need for trying new methods and learning new techniques, etc. etc.\n\nWhat is the point in doing that? **I really don't know...**\n\nOk, so, how good is my score? First we shall load in a snapshot of the leaderboard. This data can be downloaded directly from [the Titanic leaderboard page ](https://www.kaggle.com/c/3136/publicleaderboarddata.zip) where it says Raw Data.\n",
+            "mc_idx": 0,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "#!/usr/bin/python3\n# coding=utf-8\n#===========================================================================\n# load up the libraries\n#===========================================================================\nimport pandas  as pd\nimport matplotlib.pyplot as plt",
+            "mc_idx": 1,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.047619047619047616,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.09523809523809523,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "import ": 20,
+                    "libraries": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "matplotlib": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "matplotlib": 1,
+                    "pyplot": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    0,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 1,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 0,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "Let us read in a snapshot of the leaderboard as of May 2020",
+            "mc_idx": 2,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "titanic_lb = pd.read_csv('/kaggle/input/titanic-publicleaderboarddata-4v2020/publicleaderboarddata/titanic-publicleaderboard.csv',parse_dates=['SubmissionDate'])",
+            "mc_idx": 3,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Data_Extraction",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 1.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {
+                    "read_csv": 2,
+                    "pd.read_": 2
+                },
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    1,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 3,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 1,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "titanic_lb.shape",
+            "mc_idx": 4,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "shape": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {
+                    "shap": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    2,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "(40555, 4)"
+                    ]
+                },
+                "mc_idx": 4,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 2,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "We can see that at the time there were over 40 thousand teams on the leaderboard",
+            "mc_idx": 5,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "titanic_lb[\"year\"] = titanic_lb[\"SubmissionDate\"].dt.year\ntitanic_lb[\"year\"].value_counts()",
+            "mc_idx": 6,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "value_counts()": 1,
+                    ".value_counts": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    3,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "2020    36522\n2019     2657\n2018      758\n2017      349\n2016      108\n2015       96\n2014       36\n2013       24\n2012        5\nName: year, dtype: int64"
+                    ]
+                },
+                "mc_idx": 6,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 3,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "and we can see that the vast majority of the submissions were from the year 2020.",
+            "mc_idx": 7,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "#===========================================================================\n# make a frequency table\n#===========================================================================\nfrom collections import Counter\ntitanic_ft = Counter(titanic_lb[\"Score\"])",
+            "mc_idx": 8,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "import ": 10
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    4,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 8,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 4,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "Firstly, we shall make a frequency plot of the *whole* leaderboard to get an overall feeling for the data:",
+            "mc_idx": 9,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "plt.figure(figsize=(16,6))\nplt.xlabel  (\"Score\")\nplt.ylabel  (\"Frequency\")\nplt.xlim((0.0,1.0))\nplt.bar(titanic_ft.keys(), titanic_ft.values(), width=0.004)\nplt.show()",
+            "mc_idx": 10,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.3333333333333333,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.6666666666666666,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    ".show": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "plt.bar": 1,
+                    ".bar(": 1,
+                    "size": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "plt.bar": 1,
+                    ".bar(": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/images/d0067_c005_o000_image_0.png",
+                    5,
+                    0,
+                    0
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "<Figure size 1152x432 with 1 Axes>"
+                    ]
+                },
+                "mc_idx": 10,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 5,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "We can see that the majority of the scores lie between `0.6` and `0.85`, so we shall zoom in on that area:",
+            "mc_idx": 11,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "plt.figure(figsize=(16,6))\nplt.xlabel  (\"Score\")\nplt.ylabel  (\"Frequency\")\nplt.xlim((0.6,0.85))\nplt.bar(titanic_ft.keys(), titanic_ft.values(), width=0.004)\nplt.show()",
+            "mc_idx": 12,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.3333333333333333,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.6666666666666666,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    ".show": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "plt.bar": 1,
+                    ".bar(": 1,
+                    "size": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "plt.bar": 1,
+                    ".bar(": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/images/d0067_c006_o000_image_1.png",
+                    6,
+                    0,
+                    1
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "<Figure size 1152x432 with 1 Axes>"
+                    ]
+                },
+                "mc_idx": 12,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 6,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "We can clearly see a distribution of scores, and in particular, three interesting peaks.\n### The 0.76555 peak:\nThis is by far the highest peak and corresponds to correctly classifying 320 results. This peak is due to people submitting the default `gender_submission.csv` file provided by the competition. The submission of this file alone represents more than 20% of the results that are seen on the leaderboard. This is not entirely surprising, given that the excellent [Titanic Tutorial](https://www.kaggle.com/alexisbcook/titanic-tutorial) by Alexis Cook suggests doing this as an exercise.",
+            "mc_idx": 13,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "# find the maximum value (i.e. most frequent score) \n# and its corresponding key\nmaximum = max(titanic_ft, key=titanic_ft.get)\n# calculate the percentage of submissions that have this score\npercentage_max_score = ((100/titanic_lb.shape[0])*titanic_ft[maximum])\nprint(\"Percentage of people with the most frequent score is:\",\n      str(round(percentage_max_score, 2)),\"%\")",
+            "mc_idx": 14,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "shape": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {
+                    "shap": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    7,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "Percentage of people with the most frequent score is: 20.52 %\n"
+                    ]
+                },
+                "mc_idx": 14,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 7,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "### The 0.62679 peak:\nThis peak corresponds to people submitting the [*'all dead'* submission file](https://www.kaggle.com/carlmcbrideellis/titanic-all-zeros-csv-file), in other words, in the submission file all `PassengerId` are assigned a zero, corresponding to no survivors. If we multiply `0.62200` by the number of entries in the file, `418`, shows us that the simple *all dead* file actually correctly guesses 260 data points. This in some way is a stark reminder of the tragedy that was the Titanic.\n### The 0.77511 peak:\nMost classifiers will give this result if very little feature engineering or hyperparameter tuning has been performed. The score corresponds to correctly classifying 324 passengers. For example, the script for the random forest model in the aforementioned *Titanic Tutorial* notebook, in conjunction with the parameters which were provided, returns this score of 0.77511. Indeed this score can be [obtained via a simple model](https://www.kaggle.com/code/carlmcbrideellis/kiss-small-and-simple-titanic-models) as a result of predicting that only women from 1st and 2nd class survive.\n### The 1.00000 peak:\nThis is a most disappointing peak, as we have mentioned earlier, it is the result of cheating.\n\nWe can make a count of the number of these unfair submissions, currently there are over 100 of them:",
+            "mc_idx": 15,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "# print the number of 'perfect' solutions\nprint(\"Number of 'perfect' (1.00000) submissions is: %i\" % titanic_ft[1.0])",
+            "mc_idx": 16,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    8,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "Number of 'perfect' (1.00000) submissions is: 104\n"
+                    ]
+                },
+                "mc_idx": 16,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 8,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# So, how great is 0.8?\nNow, to answer *How good is a score greater than 0.8?*",
+            "mc_idx": 17,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "# sum the number of submissions with a score > 0.8\nsum = 0\nfor key in titanic_ft:\n    if key > 0.8:\n        sum = sum + titanic_ft[key]\nprint(\"Number of submissions whose score is greater than 0.8 is:\",sum)",
+            "mc_idx": 18,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    9,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "Number of submissions whose score is greater than 0.8 is: 2302\n"
+                    ]
+                },
+                "mc_idx": 18,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 9,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "we shall now remove the 'perfect' scores from our tally, as they are basically rubbish:",
+            "mc_idx": 19,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "# take away the 1.00000 bin\nnumber_gt_8_correct = sum - titanic_ft[1.0]\nprint(\"less those with a perfect 1.00000 is:\", number_gt_8_correct)",
+            "mc_idx": 20,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    10,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "less those with a perfect 1.00000 is: 2198\n"
+                    ]
+                },
+                "mc_idx": 20,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 10,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "percentage_gt_eight = ((100/titanic_lb.shape[0])*number_gt_8_correct)\nprint(\"Submissions with a score greater than 0.8 are in the top\", \n      str(round(percentage_gt_eight, 2)),\"%\")",
+            "mc_idx": 21,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "shape": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {
+                    "shap": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    11,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "Submissions with a score greater than 0.8 are in the top 5.42 %\n"
+                    ]
+                },
+                "mc_idx": 21,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 11,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "#### Answer: a score > 0.8 is well within the top 6%, and more than good enough for a gold medal\n### Now that is great!\n#### PS: If you are wondering, a score of above 0.785 would sufficient land yourself a silver medal.\n\n### Honourable mention: A score of 0.00000\nOccasionally people obtain a score of `0.00000` no matter what they do. This is *almost certainly* caused by submitting a `submission.csv` for which the `Survived` column is made up of floating point numbers (i.e. `0.0 and 1.0`) rather than integers (`0` and `1`). This can be easily remedied by simply passing them through `.astype(int)` before writing.\n\n<br><font color='red'>**Note**: As of the 1st of July 2020 there is now only one unified leaderboard, calculated using *all* the data. This slightly changes some of the 'old' scores. See</font> [\"Getting Started Competitions - 100% Public Leaderboard\"](https://www.kaggle.com/c/titanic/discussion/163366) \n<font color='red'>for details.</font>. \n\n## 2023 Update\n\nWith the new 100% Public Leaderboard we have\n* `gender_submission.csv` score: 0.76555\n* \"all dead\" score: 0.62201\n\nLet us take a quick look at the situation in 2023 with a more recent snapshot of the 2 month rolling leaderboard",
+            "mc_idx": 22,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "titanic_2023_data = pd.read_csv(\"/kaggle/input/titanic-publicleaderboarddata-4v2020/titanic-publicleaderboard-2023-12-21.csv\")",
+            "mc_idx": 23,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Data_Extraction",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 1.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {
+                    "read_csv": 2,
+                    "pd.read_": 2
+                },
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    12,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 23,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 12,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "titanic_ft_2023 = Counter(titanic_2023_data[\"Score\"])\n\nplt.figure(figsize=(16,6))\nplt.xlabel  (\"Score\")\nplt.ylabel  (\"Frequency\")\nplt.xlim((0.70,0.85))\nplt.bar(titanic_ft_2023.keys(), titanic_ft_2023.values(), width=0.002)\nplt.show()",
+            "mc_idx": 24,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.3333333333333333,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.6666666666666666,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    ".show": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "plt.bar": 1,
+                    ".bar(": 1,
+                    "size": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "plt.bar": 1,
+                    ".bar(": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/images/d0067_c013_o000_image_2.png",
+                    13,
+                    0,
+                    2
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "<Figure size 1152x432 with 1 Axes>"
+                    ]
+                },
+                "mc_idx": 24,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 13,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "titanic_2023_data[\"Score\"].value_counts().head(1)",
+            "mc_idx": 25,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "value_counts()": 1,
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1,
+                    ".value_counts": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    14,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "0.77511    4807\nName: Score, dtype: int64"
+                    ]
+                },
+                "mc_idx": 25,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 14,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "We can see that the 0.77511 is now by far the most frequent score, and submitting the `gender_submission.csv` file seems to have  fallen out of favour.",
+            "mc_idx": 26,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        }
+    ],
+    "code_cells": [
+        {
+            "source": "#!/usr/bin/python3\n# coding=utf-8\n#===========================================================================\n# load up the libraries\n#===========================================================================\nimport pandas  as pd\nimport matplotlib.pyplot as plt",
+            "mc_idx": 1,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.047619047619047616,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.09523809523809523,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "import ": 20,
+                    "libraries": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "matplotlib": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "matplotlib": 1,
+                    "pyplot": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    0,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 1,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 0,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "titanic_lb = pd.read_csv('/kaggle/input/titanic-publicleaderboarddata-4v2020/publicleaderboarddata/titanic-publicleaderboard.csv',parse_dates=['SubmissionDate'])",
+            "mc_idx": 3,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Data_Extraction",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 1.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {
+                    "read_csv": 2,
+                    "pd.read_": 2
+                },
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    1,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 3,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 1,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "titanic_lb.shape",
+            "mc_idx": 4,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "shape": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {
+                    "shap": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    2,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "(40555, 4)"
+                    ]
+                },
+                "mc_idx": 4,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 2,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "titanic_lb[\"year\"] = titanic_lb[\"SubmissionDate\"].dt.year\ntitanic_lb[\"year\"].value_counts()",
+            "mc_idx": 6,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "value_counts()": 1,
+                    ".value_counts": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    3,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "2020    36522\n2019     2657\n2018      758\n2017      349\n2016      108\n2015       96\n2014       36\n2013       24\n2012        5\nName: year, dtype: int64"
+                    ]
+                },
+                "mc_idx": 6,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 3,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "#===========================================================================\n# make a frequency table\n#===========================================================================\nfrom collections import Counter\ntitanic_ft = Counter(titanic_lb[\"Score\"])",
+            "mc_idx": 8,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "import ": 10
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    4,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 8,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 4,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "plt.figure(figsize=(16,6))\nplt.xlabel  (\"Score\")\nplt.ylabel  (\"Frequency\")\nplt.xlim((0.0,1.0))\nplt.bar(titanic_ft.keys(), titanic_ft.values(), width=0.004)\nplt.show()",
+            "mc_idx": 10,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.3333333333333333,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.6666666666666666,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    ".show": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "plt.bar": 1,
+                    ".bar(": 1,
+                    "size": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "plt.bar": 1,
+                    ".bar(": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/images/d0067_c005_o000_image_0.png",
+                    5,
+                    0,
+                    0
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "<Figure size 1152x432 with 1 Axes>"
+                    ]
+                },
+                "mc_idx": 10,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 5,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "plt.figure(figsize=(16,6))\nplt.xlabel  (\"Score\")\nplt.ylabel  (\"Frequency\")\nplt.xlim((0.6,0.85))\nplt.bar(titanic_ft.keys(), titanic_ft.values(), width=0.004)\nplt.show()",
+            "mc_idx": 12,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.3333333333333333,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.6666666666666666,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    ".show": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "plt.bar": 1,
+                    ".bar(": 1,
+                    "size": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "plt.bar": 1,
+                    ".bar(": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/images/d0067_c006_o000_image_1.png",
+                    6,
+                    0,
+                    1
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "<Figure size 1152x432 with 1 Axes>"
+                    ]
+                },
+                "mc_idx": 12,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 6,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# find the maximum value (i.e. most frequent score) \n# and its corresponding key\nmaximum = max(titanic_ft, key=titanic_ft.get)\n# calculate the percentage of submissions that have this score\npercentage_max_score = ((100/titanic_lb.shape[0])*titanic_ft[maximum])\nprint(\"Percentage of people with the most frequent score is:\",\n      str(round(percentage_max_score, 2)),\"%\")",
+            "mc_idx": 14,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "shape": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {
+                    "shap": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    7,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "Percentage of people with the most frequent score is: 20.52 %\n"
+                    ]
+                },
+                "mc_idx": 14,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 7,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# print the number of 'perfect' solutions\nprint(\"Number of 'perfect' (1.00000) submissions is: %i\" % titanic_ft[1.0])",
+            "mc_idx": 16,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    8,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "Number of 'perfect' (1.00000) submissions is: 104\n"
+                    ]
+                },
+                "mc_idx": 16,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 8,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# sum the number of submissions with a score > 0.8\nsum = 0\nfor key in titanic_ft:\n    if key > 0.8:\n        sum = sum + titanic_ft[key]\nprint(\"Number of submissions whose score is greater than 0.8 is:\",sum)",
+            "mc_idx": 18,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    9,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "Number of submissions whose score is greater than 0.8 is: 2302\n"
+                    ]
+                },
+                "mc_idx": 18,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 9,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# take away the 1.00000 bin\nnumber_gt_8_correct = sum - titanic_ft[1.0]\nprint(\"less those with a perfect 1.00000 is:\", number_gt_8_correct)",
+            "mc_idx": 20,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    10,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "less those with a perfect 1.00000 is: 2198\n"
+                    ]
+                },
+                "mc_idx": 20,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 10,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "percentage_gt_eight = ((100/titanic_lb.shape[0])*number_gt_8_correct)\nprint(\"Submissions with a score greater than 0.8 are in the top\", \n      str(round(percentage_gt_eight, 2)),\"%\")",
+            "mc_idx": 21,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "shape": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {
+                    "shap": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    11,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "Submissions with a score greater than 0.8 are in the top 5.42 %\n"
+                    ]
+                },
+                "mc_idx": 21,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 11,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "titanic_2023_data = pd.read_csv(\"/kaggle/input/titanic-publicleaderboarddata-4v2020/titanic-publicleaderboard-2023-12-21.csv\")",
+            "mc_idx": 23,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Data_Extraction",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 1.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {
+                    "read_csv": 2,
+                    "pd.read_": 2
+                },
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    12,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 23,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 12,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "titanic_ft_2023 = Counter(titanic_2023_data[\"Score\"])\n\nplt.figure(figsize=(16,6))\nplt.xlabel  (\"Score\")\nplt.ylabel  (\"Frequency\")\nplt.xlim((0.70,0.85))\nplt.bar(titanic_ft_2023.keys(), titanic_ft_2023.values(), width=0.002)\nplt.show()",
+            "mc_idx": 24,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.3333333333333333,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.6666666666666666,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    ".show": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "plt.bar": 1,
+                    ".bar(": 1,
+                    "size": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "plt.bar": 1,
+                    ".bar(": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/images/d0067_c013_o000_image_2.png",
+                    13,
+                    0,
+                    2
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "<Figure size 1152x432 with 1 Axes>"
+                    ]
+                },
+                "mc_idx": 24,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 13,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "titanic_2023_data[\"Score\"].value_counts().head(1)",
+            "mc_idx": 25,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "value_counts()": 1,
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1,
+                    ".value_counts": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    14,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "0.77511    4807\nName: Score, dtype: int64"
+                    ]
+                },
+                "mc_idx": 25,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 14,
+                "o_idx": 0
+            }
+        }
+    ],
+    "markdown_cells": [
+        {
+            "source": "### Titanic leaderboard: a score > 0.8 is great!\n**Author: [Carl McBride Ellis](https://www.kaggle.com/carlmcbrideellis)** ([LinkedIn](https://www.linkedin.com/in/carl-mcbride-ellis/))\n\nThe objective of this notebook is to shed some light on the question of *How good is my score in the Titanic competition?*\nWe all know the feeling of clicking on the '*Jump to your position on the leaderboard*', and we get a score of 0.7xxx (well, as least I do) then the next thing we do is scroll up and see all these 1.00000 results and we feel that \nwe are doing something wrong. \n\nThe first thing to say is that these *1.00000* submissions are cheating! Basically it works because the *hidden* data against which your submission is tested is actually [*public*](https://en.wikipedia.org/wiki/Passengers_of_the_RMS_Titanic#Passenger_list) data, which can be found on Wikipedia, etc. (it is the *Titanic* after all). In other words, if you hand-craft the submission file you will score a 1, with no machine learning required; hardly any need for python or R code, no need for trying new methods and learning new techniques, etc. etc.\n\nWhat is the point in doing that? **I really don't know...**\n\nOk, so, how good is my score? First we shall load in a snapshot of the leaderboard. This data can be downloaded directly from [the Titanic leaderboard page ](https://www.kaggle.com/c/3136/publicleaderboarddata.zip) where it says Raw Data.\n",
+            "mc_idx": 0,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "Let us read in a snapshot of the leaderboard as of May 2020",
+            "mc_idx": 2,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "We can see that at the time there were over 40 thousand teams on the leaderboard",
+            "mc_idx": 5,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "and we can see that the vast majority of the submissions were from the year 2020.",
+            "mc_idx": 7,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "Firstly, we shall make a frequency plot of the *whole* leaderboard to get an overall feeling for the data:",
+            "mc_idx": 9,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "We can see that the majority of the scores lie between `0.6` and `0.85`, so we shall zoom in on that area:",
+            "mc_idx": 11,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "We can clearly see a distribution of scores, and in particular, three interesting peaks.\n### The 0.76555 peak:\nThis is by far the highest peak and corresponds to correctly classifying 320 results. This peak is due to people submitting the default `gender_submission.csv` file provided by the competition. The submission of this file alone represents more than 20% of the results that are seen on the leaderboard. This is not entirely surprising, given that the excellent [Titanic Tutorial](https://www.kaggle.com/alexisbcook/titanic-tutorial) by Alexis Cook suggests doing this as an exercise.",
+            "mc_idx": 13,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "### The 0.62679 peak:\nThis peak corresponds to people submitting the [*'all dead'* submission file](https://www.kaggle.com/carlmcbrideellis/titanic-all-zeros-csv-file), in other words, in the submission file all `PassengerId` are assigned a zero, corresponding to no survivors. If we multiply `0.62200` by the number of entries in the file, `418`, shows us that the simple *all dead* file actually correctly guesses 260 data points. This in some way is a stark reminder of the tragedy that was the Titanic.\n### The 0.77511 peak:\nMost classifiers will give this result if very little feature engineering or hyperparameter tuning has been performed. The score corresponds to correctly classifying 324 passengers. For example, the script for the random forest model in the aforementioned *Titanic Tutorial* notebook, in conjunction with the parameters which were provided, returns this score of 0.77511. Indeed this score can be [obtained via a simple model](https://www.kaggle.com/code/carlmcbrideellis/kiss-small-and-simple-titanic-models) as a result of predicting that only women from 1st and 2nd class survive.\n### The 1.00000 peak:\nThis is a most disappointing peak, as we have mentioned earlier, it is the result of cheating.\n\nWe can make a count of the number of these unfair submissions, currently there are over 100 of them:",
+            "mc_idx": 15,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "# So, how great is 0.8?\nNow, to answer *How good is a score greater than 0.8?*",
+            "mc_idx": 17,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "we shall now remove the 'perfect' scores from our tally, as they are basically rubbish:",
+            "mc_idx": 19,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "#### Answer: a score > 0.8 is well within the top 6%, and more than good enough for a gold medal\n### Now that is great!\n#### PS: If you are wondering, a score of above 0.785 would sufficient land yourself a silver medal.\n\n### Honourable mention: A score of 0.00000\nOccasionally people obtain a score of `0.00000` no matter what they do. This is *almost certainly* caused by submitting a `submission.csv` for which the `Survived` column is made up of floating point numbers (i.e. `0.0 and 1.0`) rather than integers (`0` and `1`). This can be easily remedied by simply passing them through `.astype(int)` before writing.\n\n<br><font color='red'>**Note**: As of the 1st of July 2020 there is now only one unified leaderboard, calculated using *all* the data. This slightly changes some of the 'old' scores. See</font> [\"Getting Started Competitions - 100% Public Leaderboard\"](https://www.kaggle.com/c/titanic/discussion/163366) \n<font color='red'>for details.</font>. \n\n## 2023 Update\n\nWith the new 100% Public Leaderboard we have\n* `gender_submission.csv` score: 0.76555\n* \"all dead\" score: 0.62201\n\nLet us take a quick look at the situation in 2023 with a more recent snapshot of the 2 month rolling leaderboard",
+            "mc_idx": 22,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "We can see that the 0.77511 is now by far the most frequent score, and submitting the `gender_submission.csv` file seems to have  fallen out of favour.",
+            "mc_idx": 26,
+            "nb_idx": 67,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        }
+    ],
+    "sim_matrix": [],
+    "cell_sim_matrix": [],
+    "nb_order": [],
+    "summary_data_VA": null
+}

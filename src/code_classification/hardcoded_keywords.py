@@ -7,7 +7,7 @@ def hardcoded_keywords():
 
     hardcoded_keywords = {
         "Environment": {
-            "PL_keywords": ["import ", "requirements.txt", "environment.yml", "!pip install", "!conda install", "virtualenv", "venv", "docker-compose", "pip3 install", "conda install", "install.packages", "setup environment"],
+            "PL_keywords": ["import ", "import ", "import ", "import ", "import ", "import ", "import ", "import ", "import ", "import ", "requirements.txt", "environment.yml", "!pip install", "!conda install", "virtualenv", "venv", "docker-compose", "pip3 install", "conda install", "install.packages", "setup environment"],
             "NL_keywords": ["environment setup", "package installation", "dependency management", "virtual environment", "setup instructions", "installation guide", "libraries", "import packages", "import libraries"],
             "PL_keywords_weak": ["install", "setup.py", "pipenv", "pyenv", "sdk", "package.json", "Gemfile", "requirements", "dependency"],
             "NL_keywords_weak": ["setup environment", "installing dependencies", "manage packages", "setup guide", "configure", "environment configuration", "software installation", "installing software", "setup steps"],

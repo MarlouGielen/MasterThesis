@@ -143,6 +143,10 @@ class Notebook:
         self.r_chars_code = self.n_chars_code / self.n_chars
 
         self.summary_data_VA = None
+
+        self.sim_matrix = []
+        self.cell_sim_matrix = []
+        self.nb_order = []
    
     def set_summary_data_VA(self, summary_data_VA):
         self.summary_data_VA = summary_data_VA
@@ -172,7 +176,7 @@ class Notebook:
         return {
             'nb_idx': self.nb_idx,
             'nb_name': self.nb_name,
-            'file': self.file,
+            #'file': self.file,
             'filename': self.filename,
             'filepath': self.filepath,
             'source': self.source,
@@ -227,8 +231,12 @@ class Notebook:
             'all_cells': [cell.to_dict() for cell in self.all_cells],
             'code_cells': [cell.to_dict() for cell in self.code_cells],
             'markdown_cells': [cell.to_dict() for cell in self.markdown_cells],
-            'summary_data_VA': self.summary_data_VA if hasattr(self, 'summary_data_VA') else None
+            'sim_matrix': self.sim_matrix,
+            'cell_sim_matrix': self.cell_sim_matrix,
+            'nb_order': self.nb_order,
+            'summary_data_VA': self.summary_data_VA if hasattr(self, 'summary_data_VA') else None,
         }
+    
 
 
     def save_notebook(self, output_path):

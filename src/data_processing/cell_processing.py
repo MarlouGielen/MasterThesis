@@ -43,6 +43,7 @@ def load_cell_obj(notebooks, images_path): #TODO: add consecutive code and markd
 
                     output_source = []
                     for o_idx, output in enumerate(cell['outputs']):
+                        codecell.set_image_path(None, c_idx, o_idx, None) # set image path to None as default
                         if 'text' in output:
                             output_source.append(output['text'])
                         elif 'data' in output:
@@ -52,7 +53,7 @@ def load_cell_obj(notebooks, images_path): #TODO: add consecutive code and markd
                                 image_path = save_image_from_data(output_data['image/png'], images_path, img_idx, nb.nb_name + '_c' + str(c_idx).zfill(3) + '_o' + str(o_idx).zfill(3) )
                                 codecell.set_image_path(image_path, c_idx, o_idx, img_idx)
                                 img_idx += 1
-
+                                
                             # add plain text or html text
                             if 'text/plain' in output_data:
                                 output_source.append(output_data['text/plain'])
@@ -60,6 +61,9 @@ def load_cell_obj(notebooks, images_path): #TODO: add consecutive code and markd
                                 output_source.append(output_data['text/html'])
 
                     codecell.set_output(output_source, c_idx, o_idx, mc_idx)
+                else:
+                    codecell.set_output([], c_idx, 0, mc_idx)
+                    codecell.set_image_path(None, c_idx, 0, None)
 
                 all_cells.append(codecell)
                 all_code_cells.append(all_cells[-1])
@@ -83,11 +87,23 @@ def load_cell_obj(notebooks, images_path): #TODO: add consecutive code and markd
 
                 if mc_idx != i:
                     raise ValueError('mc_idx:', mc_idx, 'i:', i)
-                
+
             # skip other cell types    
             else: 
                 i += 1
                 print('Encountered cell type:', cell['cell_type'],' skipping cell in load_cell_obj ')
+
+            # add duration of cell to cell object
+            if 'metadata' in cell and 'duration' in cell['metadata']:
+                all_cells[-1].duration = cell['metadata']['duration']
+            else:
+                all_cells[-1].duration = None
+
+            # add exception of cell
+            if 'metadata' in cell and 'exception' in cell['metadata']:
+                all_cells[-1].exception = cell['metadata']['exception']
+            else:
+                all_cells[-1].exception = None
 
         # add cell objects to notebook object    
         nb.all_cells = all_cells

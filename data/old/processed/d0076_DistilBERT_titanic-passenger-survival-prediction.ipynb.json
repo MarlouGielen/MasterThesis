@@ -1,0 +1,2693 @@
+{
+    "nb_idx": 76,
+    "nb_name": "d0076",
+    "filename": "titanic-passenger-survival-prediction.ipynb",
+    "filepath": "data/data_Kaggle/raw/titanic-passenger-survival-prediction.ipynb",
+    "source": "<div style=\"background-image: url(https://wallpapercave.com/wp/wp2563739.jpg); background-color: #cbcd94; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); text-align: center;\">\n  <h1 style=\"font-family: Algerian; font-size: 32px; color: #ed290c;\"> \ud83e\uddca Titanic Prediction Model \ud83d\udea2 \ud83c\udf0a </h1>\n</div>\n \n ![Titanic](https://wallpapercave.com/wp/wp2563739.jpg) \n import pandas as pd\nfrom sklearn.ensemble import RandomForestClassifier \n train_data = pd.read_csv('/kaggle/input/titanic/train.csv') \n <div style=\"background-image: url(https://wallpapercave.com/wp/wp2563739.jpg); background-color: #cbcd94; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); text-align: center;\">\n  <h1 style=\"font-family: Algerian; font-size: 32px; color: #ed290c;\"> \ud83d\udee0\ufe0f Data preprocessing \ud83e\uddf9 </h1>\n</div>\n \n \ntrain_data = train_data[['Survived', 'Age', 'Sex', 'Pclass']] \n <div style=\"background-image: url(https://wallpapercave.com/wp/wp2563739.jpg); background-color: #cbcd94; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); text-align: center;\">\n  <h1 style=\"font-family: Algerian; font-size: 32px; color: #ed290c;\"> \ud83d\udee0\ufe0f  Handle missing values \ud83e\udde9</h1>\n</div>\n \n train_data['Age'].fillna(train_data['Age'].median(), inplace=True) \n train_data = pd.get_dummies(train_data, columns=['Sex', 'Pclass'], drop_first=True)\n \n <div style=\"background-image: url(https://wallpapercave.com/wp/wp2563739.jpg); background-color: #cbcd94; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); text-align: center;\">\n  <strong><h1 style=\"font-family: Algerian; font-size: 32px; color: #ed290c;\"> \ud83d\udca1 Model Building \ud83e\udd16</h1></strong>\n</div>\n \n X_train = train_data.drop('Survived', axis=1)\ny_train = train_data['Survived']\n \n model = RandomForestClassifier(random_state=42)\nmodel.fit(X_train, y_train)\n \n importances = model.feature_importances_\nfeature_names = X_train.columns \n feature_importances = pd.DataFrame({'Feature': feature_names, 'Importance': importances})\nfeature_importances = feature_importances.sort_values(by='Importance', ascending=False) \n print(\"Feature Importances:\")\nprint(feature_importances) \n test_data = pd.read_csv('/kaggle/input/titanic/test.csv')\ntest_data = test_data[['PassengerId', 'Age', 'Sex', 'Pclass']]\ntest_data['Age'].fillna(test_data['Age'].median(), inplace=True)\ntest_data = pd.get_dummies(test_data, columns=['Sex', 'Pclass'], drop_first=True)\nX_test = test_data.drop('PassengerId', axis=1)\n \n predictions = model.predict(X_test) \n output = pd.DataFrame({'PassengerId': test_data['PassengerId'], 'Survived': predictions}) \n print(\"\\nPrediction for test data:\")\nprint(output) \n <div style=\"background-color: yellow; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); text-align: center;\">\n    <strong><h1 style=\"font-family: Comic Sans, Comic Sans; font-size: 32px; color: green;  display: inline-block; padding: 10px;\"> Thank you for exploring this notebook! If you enjoyed it and found value in the content, please consider giving it an upvote \u2b06\ufe0f. Your support means a lot to me and encourages me to create more helpful notebooks.</h1></strong>\n  </div>\n</div>\n",
+    "code_source": "import pandas as pd\nfrom sklearn.ensemble import RandomForestClassifier \n train_data = pd.read_csv('/kaggle/input/titanic/train.csv') \n \ntrain_data = train_data[['Survived', 'Age', 'Sex', 'Pclass']] \n train_data['Age'].fillna(train_data['Age'].median(), inplace=True) \n train_data = pd.get_dummies(train_data, columns=['Sex', 'Pclass'], drop_first=True)\n \n X_train = train_data.drop('Survived', axis=1)\ny_train = train_data['Survived']\n \n model = RandomForestClassifier(random_state=42)\nmodel.fit(X_train, y_train)\n \n importances = model.feature_importances_\nfeature_names = X_train.columns \n feature_importances = pd.DataFrame({'Feature': feature_names, 'Importance': importances})\nfeature_importances = feature_importances.sort_values(by='Importance', ascending=False) \n print(\"Feature Importances:\")\nprint(feature_importances) \n test_data = pd.read_csv('/kaggle/input/titanic/test.csv')\ntest_data = test_data[['PassengerId', 'Age', 'Sex', 'Pclass']]\ntest_data['Age'].fillna(test_data['Age'].median(), inplace=True)\ntest_data = pd.get_dummies(test_data, columns=['Sex', 'Pclass'], drop_first=True)\nX_test = test_data.drop('PassengerId', axis=1)\n \n predictions = model.predict(X_test) \n output = pd.DataFrame({'PassengerId': test_data['PassengerId'], 'Survived': predictions}) \n print(\"\\nPrediction for test data:\")\nprint(output)",
+    "markdown_source": "<div style=\"background-image: url(https://wallpapercave.com/wp/wp2563739.jpg); background-color: #cbcd94; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); text-align: center;\">\n  <h1 style=\"font-family: Algerian; font-size: 32px; color: #ed290c;\"> \ud83e\uddca Titanic Prediction Model \ud83d\udea2 \ud83c\udf0a </h1>\n</div>\n \n ![Titanic](https://wallpapercave.com/wp/wp2563739.jpg) \n <div style=\"background-image: url(https://wallpapercave.com/wp/wp2563739.jpg); background-color: #cbcd94; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); text-align: center;\">\n  <h1 style=\"font-family: Algerian; font-size: 32px; color: #ed290c;\"> \ud83d\udee0\ufe0f Data preprocessing \ud83e\uddf9 </h1>\n</div>\n \n <div style=\"background-image: url(https://wallpapercave.com/wp/wp2563739.jpg); background-color: #cbcd94; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); text-align: center;\">\n  <h1 style=\"font-family: Algerian; font-size: 32px; color: #ed290c;\"> \ud83d\udee0\ufe0f  Handle missing values \ud83e\udde9</h1>\n</div>\n \n <div style=\"background-image: url(https://wallpapercave.com/wp/wp2563739.jpg); background-color: #cbcd94; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); text-align: center;\">\n  <strong><h1 style=\"font-family: Algerian; font-size: 32px; color: #ed290c;\"> \ud83d\udca1 Model Building \ud83e\udd16</h1></strong>\n</div>\n \n <div style=\"background-color: yellow; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); text-align: center;\">\n    <strong><h1 style=\"font-family: Comic Sans, Comic Sans; font-size: 32px; color: green;  display: inline-block; padding: 10px;\"> Thank you for exploring this notebook! If you enjoyed it and found value in the content, please consider giving it an upvote \u2b06\ufe0f. Your support means a lot to me and encourages me to create more helpful notebooks.</h1></strong>\n  </div>\n</div>\n",
+    "n_cells": 20,
+    "n_code_cells": 14,
+    "n_markdown_cells": 6,
+    "n_raw_cells": 0,
+    "n_outputs": 14,
+    "r_code_cells": 0.7,
+    "r_markdown_cells": 0.3,
+    "r_raw_cells": 0.0,
+    "r_outputs": 1.0,
+    "n_exceptions": 0,
+    "r_exceptions": 0.0,
+    "n_lines": 52,
+    "n_lines_code": 30,
+    "n_lines_markdown": 22,
+    "lines_per_cell": [
+        4,
+        1,
+        2,
+        1,
+        4,
+        2,
+        4,
+        1,
+        2,
+        4,
+        3,
+        3,
+        2,
+        2,
+        2,
+        6,
+        1,
+        1,
+        2,
+        5
+    ],
+    "lines_per_code_cell": [
+        2,
+        1,
+        2,
+        1,
+        2,
+        3,
+        3,
+        2,
+        2,
+        2,
+        6,
+        1,
+        1,
+        2
+    ],
+    "lines_per_markdown_cell": [
+        4,
+        1,
+        4,
+        4,
+        4,
+        5
+    ],
+    "ave_lines_per_cell": 2.6,
+    "ave_lines_per_code_cell": 2.142857142857143,
+    "ave_lines_per_markdown_cell": 3.6666666666666665,
+    "max_lines_per_cell": 6,
+    "max_lines_per_code_cell": 6,
+    "max_lines_per_markdown_cell": 5,
+    "min_lines_per_cell": 1,
+    "min_lines_per_code_cell": 1,
+    "min_lines_per_markdown_cell": 1,
+    "n_chars": 3129,
+    "n_chars_code": 1291,
+    "n_chars_markdown": 1838,
+    "chars_per_cell": [
+        320,
+        54,
+        71,
+        59,
+        313,
+        62,
+        316,
+        66,
+        84,
+        324,
+        79,
+        76,
+        72,
+        177,
+        56,
+        315,
+        35,
+        89,
+        50,
+        511
+    ],
+    "chars_per_code_cell": [
+        71,
+        59,
+        62,
+        66,
+        84,
+        79,
+        76,
+        72,
+        177,
+        56,
+        315,
+        35,
+        89,
+        50
+    ],
+    "chars_per_markdown_cell": [
+        320,
+        54,
+        313,
+        316,
+        324,
+        511
+    ],
+    "ave_chars_per_line": 60.17307692307692,
+    "ave_chars_per_cell": 156.45,
+    "ave_chars_per_code_cell": 92.21428571428571,
+    "ave_chars_per_markdown_cell": 306.3333333333333,
+    "max_chars_per_cell": 511,
+    "max_chars_per_code_cell": 315,
+    "max_chars_per_markdownell": 511,
+    "min_chars_per_cell": 35,
+    "min_chars_per_code_cell": 35,
+    "min_chars_per_markdown_cell": 54,
+    "r_lines_code": 0.5769230769230769,
+    "r_lines_markdown": 0.4230769230769231,
+    "r_chars_markdown": 0.5874081176094599,
+    "r_chars_code": 0.4125918823905401,
+    "all_cells": [
+        {
+            "source": "<div style=\"background-image: url(https://wallpapercave.com/wp/wp2563739.jpg); background-color: #cbcd94; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); text-align: center;\">\n  <h1 style=\"font-family: Algerian; font-size: 32px; color: #ed290c;\"> \ud83e\uddca Titanic Prediction Model \ud83d\udea2 \ud83c\udf0a </h1>\n</div>\n",
+            "mc_idx": 0,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "![Titanic](https://wallpapercave.com/wp/wp2563739.jpg)",
+            "mc_idx": 1,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "import pandas as pd\nfrom sklearn.ensemble import RandomForestClassifier",
+            "mc_idx": 2,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.1,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "import ": 20
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {
+                    "randomforestclassifier": 2
+                },
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    0,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "/opt/conda/lib/python3.10/site-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.16.5 and <1.23.0 is required for this version of SciPy (detected version 1.23.5\n  warnings.warn(f\"A NumPy version >={np_minversion} and <{np_maxversion}\"\n"
+                    ]
+                },
+                "mc_idx": 2,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 0,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "train_data = pd.read_csv('/kaggle/input/titanic/train.csv')",
+            "mc_idx": 3,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Data_Extraction",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 1.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {
+                    "read_csv": 2,
+                    "pd.read_": 2
+                },
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    1,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 3,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 1,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "<div style=\"background-image: url(https://wallpapercave.com/wp/wp2563739.jpg); background-color: #cbcd94; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); text-align: center;\">\n  <h1 style=\"font-family: Algerian; font-size: 32px; color: #ed290c;\"> \ud83d\udee0\ufe0f Data preprocessing \ud83e\uddf9 </h1>\n</div>\n",
+            "mc_idx": 4,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "\ntrain_data = train_data[['Survived', 'Age', 'Sex', 'Pclass']]",
+            "mc_idx": 5,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    2,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 5,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 2,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "<div style=\"background-image: url(https://wallpapercave.com/wp/wp2563739.jpg); background-color: #cbcd94; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); text-align: center;\">\n  <h1 style=\"font-family: Algerian; font-size: 32px; color: #ed290c;\"> \ud83d\udee0\ufe0f  Handle missing values \ud83e\udde9</h1>\n</div>\n",
+            "mc_idx": 6,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "train_data['Age'].fillna(train_data['Age'].median(), inplace=True)",
+            "mc_idx": 7,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 1.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".median": 2
+                },
+                "Data_Transform": {
+                    ".fillna(": 1,
+                    ".fillna": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    3,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 7,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 3,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "train_data = pd.get_dummies(train_data, columns=['Sex', 'Pclass'], drop_first=True)\n",
+            "mc_idx": 8,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 1.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "columns": 1
+                },
+                "Data_Transform": {
+                    ".get_dummies": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    4,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 8,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 4,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "<div style=\"background-image: url(https://wallpapercave.com/wp/wp2563739.jpg); background-color: #cbcd94; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); text-align: center;\">\n  <strong><h1 style=\"font-family: Algerian; font-size: 32px; color: #ed290c;\"> \ud83d\udca1 Model Building \ud83e\udd16</h1></strong>\n</div>\n",
+            "mc_idx": 9,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "X_train = train_data.drop('Survived', axis=1)\ny_train = train_data['Survived']\n",
+            "mc_idx": 10,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Data_Transform",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 1.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {
+                    ".drop": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    5,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 10,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 5,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "model = RandomForestClassifier(random_state=42)\nmodel.fit(X_train, y_train)\n",
+            "mc_idx": 11,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Model_Train",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 1.0,
+                "Model_Evaluation": 0.3333333333333333,
+                "Model_Interpretation": 0.3333333333333333,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model.fit": 1,
+                    ".fit(": 1,
+                    "model": 2,
+                    "randomforestclassifier": 2
+                },
+                "Model_Evaluation": {
+                    "model": 2
+                },
+                "Model_Interpretation": {
+                    "model": 2
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    6,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "RandomForestClassifier(random_state=42)"
+                    ]
+                },
+                "mc_idx": 11,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 6,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "importances = model.feature_importances_\nfeature_names = X_train.columns",
+            "mc_idx": 12,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Model_Interpretation",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.3333333333333333,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.3333333333333333,
+                "Model_Evaluation": 0.3333333333333333,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "columns": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 1
+                },
+                "Model_Evaluation": {
+                    "model": 1
+                },
+                "Model_Interpretation": {
+                    "feature_importances_": 2,
+                    "model": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    7,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 12,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 7,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "feature_importances = pd.DataFrame({'Feature': feature_names, 'Importance': importances})\nfeature_importances = feature_importances.sort_values(by='Importance', ascending=False)",
+            "mc_idx": 13,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Data_Transform",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 1.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {
+                    ".sort_values": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    8,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 13,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 8,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "print(\"Feature Importances:\")\nprint(feature_importances)",
+            "mc_idx": 14,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Model_Interpretation",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {
+                    "feature importance": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    9,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "Feature Importances:\n    Feature  Importance\n0       Age    0.418905\n1  Sex_male    0.416900\n3  Pclass_3    0.130342\n2  Pclass_2    0.033853\n"
+                    ]
+                },
+                "mc_idx": 14,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 9,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "test_data = pd.read_csv('/kaggle/input/titanic/test.csv')\ntest_data = test_data[['PassengerId', 'Age', 'Sex', 'Pclass']]\ntest_data['Age'].fillna(test_data['Age'].median(), inplace=True)\ntest_data = pd.get_dummies(test_data, columns=['Sex', 'Pclass'], drop_first=True)\nX_test = test_data.drop('PassengerId', axis=1)\n",
+            "mc_idx": 15,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Data_Extraction",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 1.0,
+                "Exploratory_Data_Analysis": 0.75,
+                "Data_Transform": 1.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {
+                    "read_csv": 2,
+                    "pd.read_": 2
+                },
+                "Exploratory_Data_Analysis": {
+                    ".median": 2,
+                    "columns": 1
+                },
+                "Data_Transform": {
+                    ".fillna(": 1,
+                    ".drop": 1,
+                    ".fillna": 1,
+                    ".get_dummies": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    10,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 15,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 10,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "predictions = model.predict(X_test)",
+            "mc_idx": 16,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Model_Evaluation",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.5,
+                "Model_Evaluation": 1.0,
+                "Model_Interpretation": 0.5,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 1
+                },
+                "Model_Evaluation": {
+                    "model": 1,
+                    ".predict(": 1
+                },
+                "Model_Interpretation": {
+                    "model": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    11,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 16,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 11,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "output = pd.DataFrame({'PassengerId': test_data['PassengerId'], 'Survived': predictions})",
+            "mc_idx": 17,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    12,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 17,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 12,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "print(\"\\nPrediction for test data:\")\nprint(output)",
+            "mc_idx": 18,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    13,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "\nPrediction for test data:\n     PassengerId  Survived\n0            892         0\n1            893         0\n2            894         1\n3            895         1\n4            896         1\n..           ...       ...\n413         1305         1\n414         1306         1\n415         1307         0\n416         1308         1\n417         1309         1\n\n[418 rows x 2 columns]\n"
+                    ]
+                },
+                "mc_idx": 18,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 13,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "<div style=\"background-color: yellow; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); text-align: center;\">\n    <strong><h1 style=\"font-family: Comic Sans, Comic Sans; font-size: 32px; color: green;  display: inline-block; padding: 10px;\"> Thank you for exploring this notebook! If you enjoyed it and found value in the content, please consider giving it an upvote \u2b06\ufe0f. Your support means a lot to me and encourages me to create more helpful notebooks.</h1></strong>\n  </div>\n</div>\n",
+            "mc_idx": 19,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        }
+    ],
+    "code_cells": [
+        {
+            "source": "import pandas as pd\nfrom sklearn.ensemble import RandomForestClassifier",
+            "mc_idx": 2,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.1,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "import ": 20
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {
+                    "randomforestclassifier": 2
+                },
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    0,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "/opt/conda/lib/python3.10/site-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.16.5 and <1.23.0 is required for this version of SciPy (detected version 1.23.5\n  warnings.warn(f\"A NumPy version >={np_minversion} and <{np_maxversion}\"\n"
+                    ]
+                },
+                "mc_idx": 2,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 0,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "train_data = pd.read_csv('/kaggle/input/titanic/train.csv')",
+            "mc_idx": 3,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Data_Extraction",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 1.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {
+                    "read_csv": 2,
+                    "pd.read_": 2
+                },
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    1,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 3,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 1,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "\ntrain_data = train_data[['Survived', 'Age', 'Sex', 'Pclass']]",
+            "mc_idx": 5,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    2,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 5,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 2,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "train_data['Age'].fillna(train_data['Age'].median(), inplace=True)",
+            "mc_idx": 7,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 1.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".median": 2
+                },
+                "Data_Transform": {
+                    ".fillna(": 1,
+                    ".fillna": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    3,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 7,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 3,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "train_data = pd.get_dummies(train_data, columns=['Sex', 'Pclass'], drop_first=True)\n",
+            "mc_idx": 8,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 1.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "columns": 1
+                },
+                "Data_Transform": {
+                    ".get_dummies": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    4,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 8,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 4,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "X_train = train_data.drop('Survived', axis=1)\ny_train = train_data['Survived']\n",
+            "mc_idx": 10,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Data_Transform",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 1.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {
+                    ".drop": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    5,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 10,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 5,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "model = RandomForestClassifier(random_state=42)\nmodel.fit(X_train, y_train)\n",
+            "mc_idx": 11,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Model_Train",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 1.0,
+                "Model_Evaluation": 0.3333333333333333,
+                "Model_Interpretation": 0.3333333333333333,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model.fit": 1,
+                    ".fit(": 1,
+                    "model": 2,
+                    "randomforestclassifier": 2
+                },
+                "Model_Evaluation": {
+                    "model": 2
+                },
+                "Model_Interpretation": {
+                    "model": 2
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    6,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "RandomForestClassifier(random_state=42)"
+                    ]
+                },
+                "mc_idx": 11,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 6,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "importances = model.feature_importances_\nfeature_names = X_train.columns",
+            "mc_idx": 12,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Model_Interpretation",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.3333333333333333,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.3333333333333333,
+                "Model_Evaluation": 0.3333333333333333,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "columns": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 1
+                },
+                "Model_Evaluation": {
+                    "model": 1
+                },
+                "Model_Interpretation": {
+                    "feature_importances_": 2,
+                    "model": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    7,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 12,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 7,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "feature_importances = pd.DataFrame({'Feature': feature_names, 'Importance': importances})\nfeature_importances = feature_importances.sort_values(by='Importance', ascending=False)",
+            "mc_idx": 13,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Data_Transform",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 1.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {
+                    ".sort_values": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    8,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 13,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 8,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "print(\"Feature Importances:\")\nprint(feature_importances)",
+            "mc_idx": 14,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Model_Interpretation",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {
+                    "feature importance": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    9,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "Feature Importances:\n    Feature  Importance\n0       Age    0.418905\n1  Sex_male    0.416900\n3  Pclass_3    0.130342\n2  Pclass_2    0.033853\n"
+                    ]
+                },
+                "mc_idx": 14,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 9,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "test_data = pd.read_csv('/kaggle/input/titanic/test.csv')\ntest_data = test_data[['PassengerId', 'Age', 'Sex', 'Pclass']]\ntest_data['Age'].fillna(test_data['Age'].median(), inplace=True)\ntest_data = pd.get_dummies(test_data, columns=['Sex', 'Pclass'], drop_first=True)\nX_test = test_data.drop('PassengerId', axis=1)\n",
+            "mc_idx": 15,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Data_Extraction",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 1.0,
+                "Exploratory_Data_Analysis": 0.75,
+                "Data_Transform": 1.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {
+                    "read_csv": 2,
+                    "pd.read_": 2
+                },
+                "Exploratory_Data_Analysis": {
+                    ".median": 2,
+                    "columns": 1
+                },
+                "Data_Transform": {
+                    ".fillna(": 1,
+                    ".drop": 1,
+                    ".fillna": 1,
+                    ".get_dummies": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    10,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 15,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 10,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "predictions = model.predict(X_test)",
+            "mc_idx": 16,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Model_Evaluation",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.5,
+                "Model_Evaluation": 1.0,
+                "Model_Interpretation": 0.5,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 1
+                },
+                "Model_Evaluation": {
+                    "model": 1,
+                    ".predict(": 1
+                },
+                "Model_Interpretation": {
+                    "model": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    11,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 16,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 11,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "output = pd.DataFrame({'PassengerId': test_data['PassengerId'], 'Survived': predictions})",
+            "mc_idx": 17,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    12,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 17,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 12,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "print(\"\\nPrediction for test data:\")\nprint(output)",
+            "mc_idx": 18,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    13,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "\nPrediction for test data:\n     PassengerId  Survived\n0            892         0\n1            893         0\n2            894         1\n3            895         1\n4            896         1\n..           ...       ...\n413         1305         1\n414         1306         1\n415         1307         0\n416         1308         1\n417         1309         1\n\n[418 rows x 2 columns]\n"
+                    ]
+                },
+                "mc_idx": 18,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 13,
+                "o_idx": 0
+            }
+        }
+    ],
+    "markdown_cells": [
+        {
+            "source": "<div style=\"background-image: url(https://wallpapercave.com/wp/wp2563739.jpg); background-color: #cbcd94; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); text-align: center;\">\n  <h1 style=\"font-family: Algerian; font-size: 32px; color: #ed290c;\"> \ud83e\uddca Titanic Prediction Model \ud83d\udea2 \ud83c\udf0a </h1>\n</div>\n",
+            "mc_idx": 0,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "![Titanic](https://wallpapercave.com/wp/wp2563739.jpg)",
+            "mc_idx": 1,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "<div style=\"background-image: url(https://wallpapercave.com/wp/wp2563739.jpg); background-color: #cbcd94; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); text-align: center;\">\n  <h1 style=\"font-family: Algerian; font-size: 32px; color: #ed290c;\"> \ud83d\udee0\ufe0f Data preprocessing \ud83e\uddf9 </h1>\n</div>\n",
+            "mc_idx": 4,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "<div style=\"background-image: url(https://wallpapercave.com/wp/wp2563739.jpg); background-color: #cbcd94; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); text-align: center;\">\n  <h1 style=\"font-family: Algerian; font-size: 32px; color: #ed290c;\"> \ud83d\udee0\ufe0f  Handle missing values \ud83e\udde9</h1>\n</div>\n",
+            "mc_idx": 6,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "<div style=\"background-image: url(https://wallpapercave.com/wp/wp2563739.jpg); background-color: #cbcd94; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); text-align: center;\">\n  <strong><h1 style=\"font-family: Algerian; font-size: 32px; color: #ed290c;\"> \ud83d\udca1 Model Building \ud83e\udd16</h1></strong>\n</div>\n",
+            "mc_idx": 9,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "<div style=\"background-color: yellow; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); text-align: center;\">\n    <strong><h1 style=\"font-family: Comic Sans, Comic Sans; font-size: 32px; color: green;  display: inline-block; padding: 10px;\"> Thank you for exploring this notebook! If you enjoyed it and found value in the content, please consider giving it an upvote \u2b06\ufe0f. Your support means a lot to me and encourages me to create more helpful notebooks.</h1></strong>\n  </div>\n</div>\n",
+            "mc_idx": 19,
+            "nb_idx": 76,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        }
+    ],
+    "sim_matrix": [],
+    "cell_sim_matrix": [],
+    "nb_order": [],
+    "summary_data_VA": null
+}

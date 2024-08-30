@@ -1,0 +1,2094 @@
+{
+    "nb_idx": 32,
+    "nb_name": "d0032",
+    "filename": "d31.ipynb",
+    "filepath": "data/data_Kaggle/raw/d31.ipynb",
+    "source": "### In this kernel, I will show how easy it is to get a perfect score on the LB. All you need to do is download the test data with the ground truth labels from [here](https://storage.googleapis.com/kaggle-forum-message-attachments/66979/2180/titanic.csv), add it to your private datasets (or make it public), run the kernel and see yourself in the top 0.5 % on the LB.\n### The point of this kernel is to show that the aim of this competition is to learn and not to get a perfect score. So, now when you know how the top 20 got their perfect scores, you can focus on learning ML rather than wondering how you can end up at the top of the LB.\n### Cheating can never get you anywhere in the long run of your future career in ML, only learning and understanding concepts can. \n **Import libraries** \n import numpy as np\nimport pandas as pd\n\nimport os\nimport re\nimport warnings\nprint(os.listdir(\"../input\")) \n **Get original test data and test data with the ground truth labels** \n test_data_with_labels = pd.read_csv('../input/titanic-test-data/titanic.csv')\ntest_data = pd.read_csv('../input/titanic/test.csv') \n test_data_with_labels.head() \n test_data.head() \n **Ignore pandas warnings** \n warnings.filterwarnings('ignore') \n **Remove unnecessary double quotes in names** \n for i, name in enumerate(test_data_with_labels['name']):\n    if '\"' in name:\n        test_data_with_labels['name'][i] = re.sub('\"', '', name)\n        \nfor i, name in enumerate(test_data['Name']):\n    if '\"' in name:\n        test_data['Name'][i] = re.sub('\"', '', name) \n **Get correct labels from test_data_with_labels** \n survived = []\n\nfor name in test_data['Name']:\n    survived.append(int(test_data_with_labels.loc[test_data_with_labels['name'] == name]['survived'].values[-1])) \n **Prepare submission file** \n submission = pd.read_csv('../input/titanic/gender_submission.csv')\nsubmission['Survived'] = survived\nsubmission.to_csv('submission.csv', index=False) \n submission.head()",
+    "code_source": "import numpy as np\nimport pandas as pd\n\nimport os\nimport re\nimport warnings\nprint(os.listdir(\"../input\")) \n test_data_with_labels = pd.read_csv('../input/titanic-test-data/titanic.csv')\ntest_data = pd.read_csv('../input/titanic/test.csv') \n test_data_with_labels.head() \n test_data.head() \n warnings.filterwarnings('ignore') \n for i, name in enumerate(test_data_with_labels['name']):\n    if '\"' in name:\n        test_data_with_labels['name'][i] = re.sub('\"', '', name)\n        \nfor i, name in enumerate(test_data['Name']):\n    if '\"' in name:\n        test_data['Name'][i] = re.sub('\"', '', name) \n survived = []\n\nfor name in test_data['Name']:\n    survived.append(int(test_data_with_labels.loc[test_data_with_labels['name'] == name]['survived'].values[-1])) \n submission = pd.read_csv('../input/titanic/gender_submission.csv')\nsubmission['Survived'] = survived\nsubmission.to_csv('submission.csv', index=False) \n submission.head()",
+    "markdown_source": "### In this kernel, I will show how easy it is to get a perfect score on the LB. All you need to do is download the test data with the ground truth labels from [here](https://storage.googleapis.com/kaggle-forum-message-attachments/66979/2180/titanic.csv), add it to your private datasets (or make it public), run the kernel and see yourself in the top 0.5 % on the LB.\n### The point of this kernel is to show that the aim of this competition is to learn and not to get a perfect score. So, now when you know how the top 20 got their perfect scores, you can focus on learning ML rather than wondering how you can end up at the top of the LB.\n### Cheating can never get you anywhere in the long run of your future career in ML, only learning and understanding concepts can. \n **Import libraries** \n **Get original test data and test data with the ground truth labels** \n **Ignore pandas warnings** \n **Remove unnecessary double quotes in names** \n **Get correct labels from test_data_with_labels** \n **Prepare submission file**",
+    "n_cells": 16,
+    "n_code_cells": 9,
+    "n_markdown_cells": 7,
+    "n_raw_cells": 0,
+    "n_outputs": 9,
+    "r_code_cells": 0.5625,
+    "r_markdown_cells": 0.4375,
+    "r_raw_cells": 0.0,
+    "r_outputs": 1.0,
+    "n_exceptions": 0,
+    "r_exceptions": 0.0,
+    "n_lines": 36,
+    "n_lines_code": 27,
+    "n_lines_markdown": 9,
+    "lines_per_cell": [
+        3,
+        1,
+        7,
+        1,
+        2,
+        1,
+        1,
+        1,
+        1,
+        1,
+        7,
+        1,
+        4,
+        1,
+        3,
+        1
+    ],
+    "lines_per_code_cell": [
+        7,
+        2,
+        1,
+        1,
+        1,
+        7,
+        4,
+        3,
+        1
+    ],
+    "lines_per_markdown_cell": [
+        3,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+    ],
+    "ave_lines_per_cell": 2.25,
+    "ave_lines_per_code_cell": 3.0,
+    "ave_lines_per_markdown_cell": 1.2857142857142858,
+    "max_lines_per_cell": 7,
+    "max_lines_per_code_cell": 7,
+    "max_lines_per_markdown_cell": 3,
+    "min_lines_per_cell": 1,
+    "min_lines_per_code_cell": 1,
+    "min_lines_per_markdown_cell": 1,
+    "n_chars": 1912,
+    "n_chars_code": 905,
+    "n_chars_markdown": 1007,
+    "chars_per_cell": [
+        771,
+        20,
+        105,
+        69,
+        130,
+        28,
+        16,
+        26,
+        33,
+        45,
+        268,
+        49,
+        159,
+        27,
+        149,
+        17
+    ],
+    "chars_per_code_cell": [
+        105,
+        130,
+        28,
+        16,
+        33,
+        268,
+        159,
+        149,
+        17
+    ],
+    "chars_per_markdown_cell": [
+        771,
+        20,
+        69,
+        26,
+        45,
+        49,
+        27
+    ],
+    "ave_chars_per_line": 53.111111111111114,
+    "ave_chars_per_cell": 119.5,
+    "ave_chars_per_code_cell": 100.55555555555556,
+    "ave_chars_per_markdown_cell": 143.85714285714286,
+    "max_chars_per_cell": 771,
+    "max_chars_per_code_cell": 268,
+    "max_chars_per_markdownell": 771,
+    "min_chars_per_cell": 16,
+    "min_chars_per_code_cell": 16,
+    "min_chars_per_markdown_cell": 20,
+    "r_lines_code": 0.75,
+    "r_lines_markdown": 0.25,
+    "r_chars_markdown": 0.5266736401673641,
+    "r_chars_code": 0.473326359832636,
+    "all_cells": [
+        {
+            "source": "### In this kernel, I will show how easy it is to get a perfect score on the LB. All you need to do is download the test data with the ground truth labels from [here](https://storage.googleapis.com/kaggle-forum-message-attachments/66979/2180/titanic.csv), add it to your private datasets (or make it public), run the kernel and see yourself in the top 0.5 % on the LB.\n### The point of this kernel is to show that the aim of this competition is to learn and not to get a perfect score. So, now when you know how the top 20 got their perfect scores, you can focus on learning ML rather than wondering how you can end up at the top of the LB.\n### Cheating can never get you anywhere in the long run of your future career in ML, only learning and understanding concepts can.",
+            "mc_idx": 0,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "**Import libraries**",
+            "mc_idx": 1,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "import numpy as np\nimport pandas as pd\n\nimport os\nimport re\nimport warnings\nprint(os.listdir(\"../input\"))",
+            "mc_idx": 2,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "import ": 5
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    0,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "['titanic-test-data', 'titanic']\n"
+                    ]
+                },
+                "mc_idx": 2,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 0,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "**Get original test data and test data with the ground truth labels**",
+            "mc_idx": 3,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "test_data_with_labels = pd.read_csv('../input/titanic-test-data/titanic.csv')\ntest_data = pd.read_csv('../input/titanic/test.csv')",
+            "mc_idx": 4,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Data_Extraction",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 1.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {
+                    "read_csv": 4,
+                    "pd.read_": 4
+                },
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    1,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 4,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 1,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "test_data_with_labels.head()",
+            "mc_idx": 5,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    2,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   pclass               ...                                       home.dest\n0       1               ...                                    St Louis, MO\n1       1               ...                 Montreal, PQ / Chesterville, ON\n2       1               ...                 Montreal, PQ / Chesterville, ON\n3       1               ...                 Montreal, PQ / Chesterville, ON\n4       1               ...                 Montreal, PQ / Chesterville, ON\n\n[5 rows x 14 columns]"
+                    ]
+                },
+                "mc_idx": 5,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 2,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "test_data.head()",
+            "mc_idx": 6,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    3,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   PassengerId  Pclass   ...    Cabin Embarked\n0          892       3   ...      NaN        Q\n1          893       3   ...      NaN        S\n2          894       2   ...      NaN        Q\n3          895       3   ...      NaN        S\n4          896       3   ...      NaN        S\n\n[5 rows x 11 columns]"
+                    ]
+                },
+                "mc_idx": 6,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 3,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "**Ignore pandas warnings**",
+            "mc_idx": 7,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "warnings.filterwarnings('ignore')",
+            "mc_idx": 8,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    4,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 8,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 4,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "**Remove unnecessary double quotes in names**",
+            "mc_idx": 9,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "for i, name in enumerate(test_data_with_labels['name']):\n    if '\"' in name:\n        test_data_with_labels['name'][i] = re.sub('\"', '', name)\n        \nfor i, name in enumerate(test_data['Name']):\n    if '\"' in name:\n        test_data['Name'][i] = re.sub('\"', '', name)",
+            "mc_idx": 10,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    5,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 10,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 5,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "**Get correct labels from test_data_with_labels**",
+            "mc_idx": 11,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "survived = []\n\nfor name in test_data['Name']:\n    survived.append(int(test_data_with_labels.loc[test_data_with_labels['name'] == name]['survived'].values[-1]))",
+            "mc_idx": 12,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    6,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 12,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 6,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "**Prepare submission file**",
+            "mc_idx": 13,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "submission = pd.read_csv('../input/titanic/gender_submission.csv')\nsubmission['Survived'] = survived\nsubmission.to_csv('submission.csv', index=False)",
+            "mc_idx": 14,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Data_Extraction",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 1.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.5,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {
+                    "read_csv": 2,
+                    "pd.read_": 2
+                },
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {
+                    ".to_csv(": 1,
+                    "to_csv": 1
+                },
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    7,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 14,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 7,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "submission.head()",
+            "mc_idx": 15,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    8,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   PassengerId  Survived\n0          892         0\n1          893         1\n2          894         0\n3          895         0\n4          896         1"
+                    ]
+                },
+                "mc_idx": 15,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 8,
+                "o_idx": 0
+            }
+        }
+    ],
+    "code_cells": [
+        {
+            "source": "import numpy as np\nimport pandas as pd\n\nimport os\nimport re\nimport warnings\nprint(os.listdir(\"../input\"))",
+            "mc_idx": 2,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "import ": 5
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    0,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "['titanic-test-data', 'titanic']\n"
+                    ]
+                },
+                "mc_idx": 2,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 0,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "test_data_with_labels = pd.read_csv('../input/titanic-test-data/titanic.csv')\ntest_data = pd.read_csv('../input/titanic/test.csv')",
+            "mc_idx": 4,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Data_Extraction",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 1.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {
+                    "read_csv": 4,
+                    "pd.read_": 4
+                },
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    1,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 4,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 1,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "test_data_with_labels.head()",
+            "mc_idx": 5,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    2,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   pclass               ...                                       home.dest\n0       1               ...                                    St Louis, MO\n1       1               ...                 Montreal, PQ / Chesterville, ON\n2       1               ...                 Montreal, PQ / Chesterville, ON\n3       1               ...                 Montreal, PQ / Chesterville, ON\n4       1               ...                 Montreal, PQ / Chesterville, ON\n\n[5 rows x 14 columns]"
+                    ]
+                },
+                "mc_idx": 5,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 2,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "test_data.head()",
+            "mc_idx": 6,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    3,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   PassengerId  Pclass   ...    Cabin Embarked\n0          892       3   ...      NaN        Q\n1          893       3   ...      NaN        S\n2          894       2   ...      NaN        Q\n3          895       3   ...      NaN        S\n4          896       3   ...      NaN        S\n\n[5 rows x 11 columns]"
+                    ]
+                },
+                "mc_idx": 6,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 3,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "warnings.filterwarnings('ignore')",
+            "mc_idx": 8,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    4,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 8,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 4,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "for i, name in enumerate(test_data_with_labels['name']):\n    if '\"' in name:\n        test_data_with_labels['name'][i] = re.sub('\"', '', name)\n        \nfor i, name in enumerate(test_data['Name']):\n    if '\"' in name:\n        test_data['Name'][i] = re.sub('\"', '', name)",
+            "mc_idx": 10,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    5,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 10,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 5,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "survived = []\n\nfor name in test_data['Name']:\n    survived.append(int(test_data_with_labels.loc[test_data_with_labels['name'] == name]['survived'].values[-1]))",
+            "mc_idx": 12,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    6,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 12,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 6,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "submission = pd.read_csv('../input/titanic/gender_submission.csv')\nsubmission['Survived'] = survived\nsubmission.to_csv('submission.csv', index=False)",
+            "mc_idx": 14,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Data_Extraction",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 1.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.5,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {
+                    "read_csv": 2,
+                    "pd.read_": 2
+                },
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {
+                    ".to_csv(": 1,
+                    "to_csv": 1
+                },
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    7,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 14,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 7,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "submission.head()",
+            "mc_idx": 15,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    8,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   PassengerId  Survived\n0          892         0\n1          893         1\n2          894         0\n3          895         0\n4          896         1"
+                    ]
+                },
+                "mc_idx": 15,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 8,
+                "o_idx": 0
+            }
+        }
+    ],
+    "markdown_cells": [
+        {
+            "source": "### In this kernel, I will show how easy it is to get a perfect score on the LB. All you need to do is download the test data with the ground truth labels from [here](https://storage.googleapis.com/kaggle-forum-message-attachments/66979/2180/titanic.csv), add it to your private datasets (or make it public), run the kernel and see yourself in the top 0.5 % on the LB.\n### The point of this kernel is to show that the aim of this competition is to learn and not to get a perfect score. So, now when you know how the top 20 got their perfect scores, you can focus on learning ML rather than wondering how you can end up at the top of the LB.\n### Cheating can never get you anywhere in the long run of your future career in ML, only learning and understanding concepts can.",
+            "mc_idx": 0,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "**Import libraries**",
+            "mc_idx": 1,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "**Get original test data and test data with the ground truth labels**",
+            "mc_idx": 3,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "**Ignore pandas warnings**",
+            "mc_idx": 7,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "**Remove unnecessary double quotes in names**",
+            "mc_idx": 9,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "**Get correct labels from test_data_with_labels**",
+            "mc_idx": 11,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "**Prepare submission file**",
+            "mc_idx": 13,
+            "nb_idx": 32,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        }
+    ],
+    "sim_matrix": [
+        0.9639334082603455,
+        0.9004597663879395,
+        0.9357250928878784,
+        0.9515649080276489,
+        0.8907794952392578,
+        0.9039990901947021,
+        0.9422665238380432,
+        0.946340024471283,
+        0.9409265518188477,
+        0.909530758857727,
+        0.9153057336807251,
+        0.9068512916564941,
+        0.9395381212234497,
+        0.9082192778587341,
+        0.9353559017181396,
+        0.9272741675376892,
+        0.9290075898170471,
+        0.9039990901947021,
+        0.9480302929878235,
+        0.9129061102867126,
+        0.9391043186187744,
+        0.946340024471283,
+        0.9354602098464966,
+        0.970280647277832,
+        0.9138490557670593,
+        0.9051343202590942,
+        0.933684229850769,
+        0.9570440649986267,
+        0.9412375688552856,
+        0.8655627965927124,
+        0.9507467746734619,
+        0.9293792247772217,
+        1.000000238418579,
+        0.8977059721946716,
+        0.9810875654220581,
+        0.9254677295684814,
+        0.9810875654220581,
+        0.9372482895851135,
+        0.946469783782959,
+        0.861955463886261,
+        0.873909056186676,
+        0.9347144961357117,
+        0.8590977787971497,
+        0.9391043186187744,
+        0.9644851684570312,
+        0.970280647277832,
+        0.9476471543312073,
+        1.000000238418579,
+        0.9558508396148682,
+        0.95734703540802,
+        0.9544606804847717,
+        0.9254677295684814,
+        0.9272741675376892,
+        0.9587396383285522,
+        0.9271670579910278,
+        0.9428027868270874,
+        0.8696191906929016,
+        0.9294054508209229,
+        0.9326772093772888,
+        0.9467693567276001,
+        0.9570878148078918,
+        0.9566509127616882,
+        0.9067736268043518,
+        0.8726809024810791,
+        0.8986651301383972,
+        0.9487094283103943,
+        0.9000837802886963,
+        0.7538130283355713,
+        0.9517099261283875,
+        0.9543623924255371,
+        0.9647417068481445,
+        0.9647112488746643,
+        0.9600929617881775,
+        0.9046920537948608,
+        0.9569459557533264,
+        0.9499329924583435,
+        0.9628311395645142,
+        0.9239069819450378,
+        0.9585504531860352,
+        0.900761067867279,
+        0.962897539138794,
+        0.9588227868080139,
+        0.9565020203590393,
+        0.9375976324081421,
+        0.9220927953720093,
+        0.9571400880813599,
+        0.927685022354126,
+        0.9354602098464966,
+        0.9358093738555908,
+        0.9149994850158691,
+        0.9372482895851135,
+        0.9129061102867126,
+        0.8977059721946716,
+        0.9573153257369995,
+        0.9411782026290894,
+        0.8779741525650024,
+        0.9411764740943909,
+        0.942327618598938
+    ],
+    "cell_sim_matrix": [],
+    "nb_order": [],
+    "summary_data_VA": null
+}

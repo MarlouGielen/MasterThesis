@@ -1,0 +1,2829 @@
+{
+    "nb_idx": 94,
+    "nb_name": "d0094",
+    "filename": "titanic-using-name-only-0-81818.ipynb",
+    "filepath": "data/data_Kaggle/raw/titanic-using-name-only-0-81818.ipynb",
+    "source": "# Simple Titanic model using only Name scores 82%!\n\nI'm excited to share my Titanic solution and write my first Kaggle notebook. I've had a fun time building dozens of models. Below is my favorite. This simple model only uses one feature more than the gender model but it scores an impressive 82% and outperforms 97% of all 11,300 Kaggle submissions which are all more complicated! Using only passenger names, gender is deduced from title (Mr. Mrs. etc), children are determined from title (Master.), and family groups are identified by duplicate surnames (last names).  \n  \nUPDATE: By combining this model with another that classifies single passengers, 85% was achieved [here][1]. Also 83% and 84% were achieved [here][2].\n\n![model](https://raw.githubusercontent.com/cdeotte/Kaggle_Images/main/2020/tree4.jpeg)\n\nFirst I'll explain how it works. Then, I'll present my model, code, cross validation, and submission results.\n\n![rules](https://raw.githubusercontent.com/cdeotte/Kaggle_Images/main/2020/rules2.jpeg)\n\n## Let's begin with the gender model... \nIf we just predict females survive and males perish, we cross validate at 78.6% and receive a public leaderboard score of 76.6%.  \n \n[1]:https://www.kaggle.com/cdeotte/titanic-wcg-xgboost-0-84688\n[2]:https://www.kaggle.com/cdeotte/titantic-mega-model-0-84210 \n # The gender model achieves a 76.6% leaderboard score\ntest <- read.csv(\"../input/titanic/test.csv\",stringsAsFactors=F)\ntest$Survived[test$Sex=='male'] <- 0\ntest$Survived[test$Sex=='female'] <- 1\nsubmit <- data.frame(PassengerId = test$PassengerId, Survived = test$Survived)\nwrite.csv(submit,\"genderModel.csv\",row.names=F) \n To improve upon the gender model, we need to determine which males survive and which females perish. By analyzing the Titanic data, we find that many male survivors are among the youth, namely 52.5% = 21/40 of males under 16 years old survive. And most females who perish are among Pclass==3 passengers, namely 50% = 72/144 of Pclass==3 females perish. \n train <- read.csv(\"../input/titanic/train.csv\",stringsAsFactors=F)\ntable(train$Survived[train$Sex=='male' & train$Age<16])\ntable(train$Survived[train$Sex=='female' & train$Pclass==3]) \n So let's focus on identifying surviving males and perishing females among these 184 passengers. The data indicates that woman and children were prioritized in rescue. Furthermore it appears that woman and children from the same family survived or perished together. There are 142 females and boys in the training dataset who have a relative (indicated by surname) in the training set that is a female or boy. Let's refer to these 142 passengers as members of \"woman-child-groups\".\n\n## Let's engineer a new feature to identify \"woman-child-groups\" and their survival rate. \n # engineer titles in training dataset\ntrain$Title <- substring(train$Name,regexpr(\",\",train$Name)+2,regexpr(\"\\\\.\",train$Name)-1)\ntrain$Title[train$Title %in% c(\"Capt\",\"Don\",\"Major\",\"Col\",\"Rev\",\"Dr\",\"Sir\",\"Mr\",\"Jonkheer\")] <- \"man\"\ntrain$Title[train$Title %in% c(\"Dona\",\"the Countess\",\"Mme\",\"Mlle\",\"Ms\",\"Miss\",\"Lady\",\"Mrs\")] <- \"woman\"\ntrain$Title[train$Title %in% c(\"Master\")] <- \"boy\"\n# engineer \"woman-child-groups\" for training dataset\ntrain$Surname <- substring(train$Name,0,regexpr(\",\",train$Name)-1)\ntrain$Surname[train$Title=='man'] <- 'noGroup'\ntrain$SurnameFreq <- ave(1:891,train$Surname,FUN=length)\ntrain$Surname[train$SurnameFreq<=1] <- 'noGroup'\n# calculate \"woman-child-group\" survival rates\ntrain$SurnameSurvival <- ave(train$Survived,train$Surname)\ntable(train$SurnameSurvival[train$Surname!='noGroup']) \n # the following \"woman-child-groups\" all perish\nx=train[train$SurnameSurvival==0,c(\"Surname\")]; unique(x[order(x)]) \n # the following \"woman-child-groups\" all survive\nx=train[train$SurnameSurvival==1,c(\"Surname\")]; unique(x[order(x)]) \n # the following \"woman-child-groups\" have mixed survival\ntrain[train$SurnameSurvival==1/7,c(\"Surname\",\"Title\",\"Survived\")]\ntrain[train$SurnameSurvival==1/3,c(\"Surname\",\"Title\",\"Survived\")]\ntrain[train$SurnameSurvival==3/4,c(\"Surname\",\"Title\",\"Survived\")] \n The above code shows that 124 out of 142 \"woman-child-group\" passengers were part of \"woman-child-groups\" that either entirely lived or died. And 18 out of the 142 were part of \"woman-child-groups\" with mixed survival. Among these 18 passengers, 14 lived or died according to their \"woman-child-groups'\" average fate and 4 did not. Therefore among all 142 \"woman-child-group\" passengers,  97.2% = 138/142 lived or died according to their \"woman-child-groups'\" average fate. Our new engineered feature is a near perfect predictor! Wow!\n\n## Cross validation\nLet's try to guess what our cross validation accuracy will be when we use this new engineered feature in addition to the gender model before cross validating. \n library(ggplot2) \n # adjust survival rates for use on training set\ntrain$AdjustedSurvival <- (train$SurnameSurvival * train$SurnameFreq - train$Survived) / (train$SurnameFreq-1)\n# apply gender model plus new predictor to training set\ntrain$predict <- 0\ntrain$predict[train$Title=='woman'] <- 1\ntrain$predict[train$Title=='boy' & train$AdjustedSurvival==1] <- 1\ntrain$predict[train$Title=='woman' & train$AdjustedSurvival==0] <- 0\n# plot how new predictor changes gender model\nggplot(train[train$Title=='woman',]) +\n    geom_jitter(aes(x=Pclass,y=predict,color=factor(Survived))) + \n    labs(title=\"36 female predictions change from gender model on training set\") +\n    labs(x=\"Pclass\",y=\"New Predictor\") +\n    geom_rect(alpha=0,color=\"black\",aes(xmin=2.5,xmax=3.5,ymin=-0.45,ymax=0.45))\ntable(train$Survived[train$Title=='woman' & train$predict==0]) \n # plot how new predictor changes gender model\nggplot(train[train$Title!='woman',]) +\n    geom_jitter(aes(x=Title,y=predict,color=factor(Survived))) +\n    labs(title=\"16 male predictions change from gender model on training set\") +\n    labs(x=\"Title\",y=\"New Predictor\") +\n    geom_rect(alpha=0,color=\"black\",aes(xmin=0.5,xmax=1.5,ymin=0.55,ymax=1.45))\ntable(train$Survived[train$Title!='woman' & train$predict==1]) \n The two plots above show that our new predictor changes 52 = 36 + 16 predictions from the gender model when applied to the training set. And amazingly, nearly all of the changes are now correct predictions! Wow! Therefore our cross validation accuracy should be 0.786 + (48/891) =  0.840. Let's test it. \n # Perform 25 trials of 10-fold cross validation\ntrials = 25; sum = 0\nfor (j in 1:trials){\nx = sample(1:890); s = 0\nfor (i in 0:9){\n    # Engineer \"woman-child-groups\" from training subset\n    train$Surname <- substring(train$Name,0,regexpr(\",\",train$Name)-1)\n    train$Surname[train$Title=='man'] <- 'noGroup'\n    train$SurnameFreq <- ave(1:891,train$Surname,FUN=length)\n    train$Surname[train$SurnameFreq<=1] <- 'noGroup'\n    train$SurnameSurvival <- NA\n    # calculate training subset's surname survival rate\n    train$SurnameSurvival[-x[1:89+i*89]] <- ave(train$Survived[-x[1:89+i*89]],train$Surname[-x[1:89+i*89]])\n    # calculate testing subset's surname survival rate from training set's rate\n    for (k in x[1:89+i*89]) \n    train$SurnameSurvival[k] <- train$SurnameSurvival[which(!is.na(train$SurnameSurvival) & train$Surname==train$Surname[k])[1]]\n    # apply gender model plus new predictor\n    train$predict <- 0\n    train$predict[train$Title=='woman'] <- 1\n    train$predict[train$Title=='boy' & train$SurnameSurvival==1] <- 1\n    train$predict[train$Title=='woman' & train$SurnameSurvival==0] <- 0\n    c = sum(abs(train$predict[x[1:89+i*89]] - train$Survived[x[1:89+i*89]]))\n    s = s + c\n}\ncat( sprintf(\"Trial %d has 10-fold CV accuracy = %f\\n\",j,1-s/890))\nsum = sum + 1-s/890\n}\ncat(sprintf(\"Average 10-fold CV accuracy from %d trials = %f\\n\",trials,sum/trials)) \n Our cross validation accuracy is 83.6% which is near our guess of 84.0%. \n\n## Submission to Kaggle and evaluation\nLet's try to guess what our Kaggle leaderboard score will be using this new engineered feature in addition to the gender model before submission. \n # engineer titles in test dataset\ntest$Title <- substring(test$Name,regexpr(\",\",test$Name)+2,regexpr(\"\\\\.\",test$Name)-1)\ntest$Title[test$Title %in% c(\"Capt\",\"Don\",\"Major\",\"Col\",\"Rev\",\"Dr\",\"Sir\",\"Mr\",\"Jonkheer\")] <- \"man\"\ntest$Title[test$Title %in% c(\"Dona\",\"the Countess\",\"Mme\",\"Mlle\",\"Ms\",\"Miss\",\"Lady\",\"Mrs\")] <- \"woman\"\ntest$Title[test$Title %in% c(\"Master\")] <- \"boy\"\n# engineer \"woman-child-groups\" for entire dataset\ntest$Survived <- NA; test$predict <- NA; train$AdjustedSurvival <- NULL\ntrain$Surname <- NULL; train$SurnameFreq <- NULL; train$SurnameSurvival <- NULL\nallData <- rbind(train,test)\nallData$Surname <- substring(allData$Name,0,regexpr(\",\",allData$Name)-1)\nallData$Surname[allData$Title=='man'] <- 'noGroup'\nallData$SurnameFreq <- ave(1:1309,allData$Surname,FUN=length)\nallData$Surname[allData$SurnameFreq<=1] <- 'noGroup'\n# using only \"Name\" scores 0.81818, correcting surname groups with \"Ticket\" scores 0.82296\n# search single woman and children and correct surname groups using Ticket\nfor (i in which(allData$Title!='man' & allData$Surname=='noGroup'))\n    allData$Surname[i] = allData$Surname[allData$Ticket==allData$Ticket[i]][1]\nallData$Surname[is.na(allData$Surname)] <- 'noGroup'\n# calculate \"woman-child-group\" survival rates\nallData$SurnameSurvival <- NA\nallData$SurnameSurvival[1:891] <- ave(allData$Survived[1:891],allData$Surname[1:891])\nfor (i in 892:1309) allData$SurnameSurvival[i] <- allData$SurnameSurvival[which(allData$Surname==allData$Surname[i])[1]]\n# apply gender model plus new predictor to test dataset\nallData$predict <- 0\nallData$predict[allData$Title=='woman'] <- 1\nallData$predict[allData$Title=='boy' & allData$SurnameSurvival==1] <- 1\nallData$predict[allData$Title=='woman' & allData$SurnameSurvival==0] <- 0\n# plot predictions\nggplot(allData[892:1309,]) +\n    geom_jitter(aes(x=Title,y=predict)) +\n    labs(title=\"18 predictions change from gender model on test set\") +\n    labs(x=\"Title\",y=\"Prediction\") +\n    geom_rect(alpha=0,color=\"black\",aes(xmin=0.5,xmax=1.5,ymin=0.55,ymax=1.45)) +\n    geom_rect(alpha=0,color=\"black\",aes(xmin=2.5,xmax=3.5,ymin=-0.45,ymax=0.45))\n \n The plot above shows that our new predictor changes 18 = 10 + 8 predictions from the gender model when applied to the test set. We suspect that all 18 of these chages are correct because nearly all the changes that our predictor made to the training dataset's gender model were correct. Therefore, we would expect that our Kaggle public leaderboard score will be 0.766 + (18/418) =  0.809. \n # create CSV file to submit\nsubmit <- data.frame(PassengerId = allData$PassengerId[892:1309], Survived = allData$predict[892:1309])\nwrite.csv(submit,\"genderSurnameModel.csv\",row.names=F) \n ![result](https://raw.githubusercontent.com/cdeotte/Kaggle_Images/main/2020/surnameModel.png)\n\nWow awesome! Our Kaggle public leaderboard score result is 82.3% which is better than our guess of 80.9%. Luck was in our favor! The test dataset contains 418 observations. The public leaderboard only scores 209 of them. Remember that we changed 18 predictions from the gender model and suspect that all those changes are correct. The gender model receives a score of 0.766 = 160/209, therefore it appears that 12 of our 18 changes were included in our public leaderboard score, (160+12)/209 = 0.823. (Note that only using \"Name\" to engineer surname groups scores 0.818. Additionally correcting surname groups with \"Ticket\" scores 0.823.)\n\n## Reflection\n\nHow much more predictive information is hiding in the training dataset besides gender and family association? Based on comparison to other submitted models, it seems not much. Since November 2012,  11300 teams have scrutinized the Titanic dataset and searched for predictive features but only 2% of those models outperform this simple gender surname model. Therefore it seems that gender and family association capture most of the prediction power of the training dataset.\n\nI would love to discover ways to improve this model. I welcome everyone to fork this kernel and try to improve its predictive accuracy. Currently it only makes 18 wise predictions and then uses the gender model. Therefore if you can build a model that can predict the other 400 remaining passengers better than the gender model, you will have a Titanic solution scoring over 82%! [More info here][1]. Good luck and have fun!  \n\n![model](https://raw.githubusercontent.com/cdeotte/Kaggle_Images/main/2020/tree3.jpeg)  \n  \n[1]:https://www.kaggle.com/c/titanic/discussion/57447 \n leader = read.csv(\"../input/kaggle-titanic-leaderboard-may-15-2018/leaderboard.csv\")\nc1 = \"gray30\"; c2 = \"black\"\ncolors <- c(rep(c1,6),c2,rep(c1,28),c2,rep(c1,11),c2,rep(c1,16))\nggplot(data=leader[leader$Score>=0.6 & leader$Score<=0.9,]) +\n    geom_histogram (aes(x=Score),binwidth=1/209,fill=colors,na.rm=TRUE) +\n    xlim(c(0.6,0.9)) + ylim(c(0,1500)) +\n    labs(title='Histogram of Kaggle titanic public leaderboard scores, May 15 2018') +\n    annotate('text', x=0.65, y=300, label='0.627 - All dead model') +\n    annotate('text', x=0.662, y=240, label='(=131/209) top 96%') +\n    annotate('text', x=0.79, y=1450, label='0.766 - Gender model') +\n    annotate('text', x=0.805, y=1390, label='(=160/209) top 64%') +\n    annotate('text', x=0.86, y=300, label='0.823 - Surname model') +\n    annotate('text', x=0.86, y=240, label='(=172/209) top 2%') \n Thank you everyone for reading my first notebook. I enjoyed writing it and look forward to your comments.  \n\nUPDATE: By combining this model with another that classifies single passengers, 85% was achieved [here][13]. Also 83% and 84% were achieved [here][14].\n\n## References\n* [Trevor Stephens][1]: Great tutorial for learning both R and Titanic modeling.\n* [Itai Blitzer][2]: Titanic code providing hints for engineered features.\n* [Megan Risdal][3]: Kaggle\u2019s Titanic tutorial with great ggplot R visualizations.\n* [Jason][4]: Kaggle\u2019s Titanic tutorial with great ggplot R visualizations.\n* [Michael Hahsler][5]: Shows R syntax for applying different machine learning models.\n* [Chris Deotte][6]: Interactive visualizations showing different machine learning models.\n* [Chris Deotte][7]: Interactive visualization showing neural network model.\n* [Oscar Takeshita][8]: Provides Titanic benchmarks of possible scores\n* [bhb2572][9]: Are Titanic models scoring 80% or better luck or science?\n* [Cathy O'Neil & Rachel Schutt][10]: Doing Data Science\n* [James, Witten, Hastie, & Tibshirani][11]: An Introduction to Statisical Learning\n* [Aurelien Geron][12]: Hands-On Machine Learning with Scikit-Learn & TensorFlow\n\n[1]:http://trevorstephens.com/kaggle-titanic-tutorial/getting-started-with-r/\n[2]:https://www.kaggle.com/itaibl/kaggle-titanic-tutorial-passing-82-part-1/code\n[3]:https://www.kaggle.com/mrisdal/exploring-survival-on-the-titanic\n[4]:https://www.kaggle.com/jasonm/large-families-not-good-for-survival\n[5]:http://michael.hahsler.net/SMU/EMIS7332/R/viz_classifier.html\n[6]:http://www.ccom.ucsd.edu/~cdeotte/programs/classify.html\n[7]:http://www.ccom.ucsd.edu/~cdeotte/programs/neuralnetwork.html\n[8]:https://www.kaggle.com/pliptor/how-am-i-doing-with-my-score/\n[9]:https://www.kaggle.com/c/titanic/discussion/56254\n[10]:https://www.amazon.com/Doing-Data-Science-Straight-Frontline/dp/1449358659\n[11]:https://www.amazon.com/Introduction-Statistical-Learning-Applications-Statistics/dp/1461471370/\n[12]:https://www.amazon.com/Hands-Machine-Learning-Scikit-Learn-TensorFlow/dp/1491962291/\n[13]:https://www.kaggle.com/cdeotte/titanic-wcg-xgboost-0-84688\n[14]:https://www.kaggle.com/cdeotte/titantic-mega-model-0-84210",
+    "code_source": "# The gender model achieves a 76.6% leaderboard score\ntest <- read.csv(\"../input/titanic/test.csv\",stringsAsFactors=F)\ntest$Survived[test$Sex=='male'] <- 0\ntest$Survived[test$Sex=='female'] <- 1\nsubmit <- data.frame(PassengerId = test$PassengerId, Survived = test$Survived)\nwrite.csv(submit,\"genderModel.csv\",row.names=F) \n train <- read.csv(\"../input/titanic/train.csv\",stringsAsFactors=F)\ntable(train$Survived[train$Sex=='male' & train$Age<16])\ntable(train$Survived[train$Sex=='female' & train$Pclass==3]) \n # engineer titles in training dataset\ntrain$Title <- substring(train$Name,regexpr(\",\",train$Name)+2,regexpr(\"\\\\.\",train$Name)-1)\ntrain$Title[train$Title %in% c(\"Capt\",\"Don\",\"Major\",\"Col\",\"Rev\",\"Dr\",\"Sir\",\"Mr\",\"Jonkheer\")] <- \"man\"\ntrain$Title[train$Title %in% c(\"Dona\",\"the Countess\",\"Mme\",\"Mlle\",\"Ms\",\"Miss\",\"Lady\",\"Mrs\")] <- \"woman\"\ntrain$Title[train$Title %in% c(\"Master\")] <- \"boy\"\n# engineer \"woman-child-groups\" for training dataset\ntrain$Surname <- substring(train$Name,0,regexpr(\",\",train$Name)-1)\ntrain$Surname[train$Title=='man'] <- 'noGroup'\ntrain$SurnameFreq <- ave(1:891,train$Surname,FUN=length)\ntrain$Surname[train$SurnameFreq<=1] <- 'noGroup'\n# calculate \"woman-child-group\" survival rates\ntrain$SurnameSurvival <- ave(train$Survived,train$Surname)\ntable(train$SurnameSurvival[train$Surname!='noGroup']) \n # the following \"woman-child-groups\" all perish\nx=train[train$SurnameSurvival==0,c(\"Surname\")]; unique(x[order(x)]) \n # the following \"woman-child-groups\" all survive\nx=train[train$SurnameSurvival==1,c(\"Surname\")]; unique(x[order(x)]) \n # the following \"woman-child-groups\" have mixed survival\ntrain[train$SurnameSurvival==1/7,c(\"Surname\",\"Title\",\"Survived\")]\ntrain[train$SurnameSurvival==1/3,c(\"Surname\",\"Title\",\"Survived\")]\ntrain[train$SurnameSurvival==3/4,c(\"Surname\",\"Title\",\"Survived\")] \n library(ggplot2) \n # adjust survival rates for use on training set\ntrain$AdjustedSurvival <- (train$SurnameSurvival * train$SurnameFreq - train$Survived) / (train$SurnameFreq-1)\n# apply gender model plus new predictor to training set\ntrain$predict <- 0\ntrain$predict[train$Title=='woman'] <- 1\ntrain$predict[train$Title=='boy' & train$AdjustedSurvival==1] <- 1\ntrain$predict[train$Title=='woman' & train$AdjustedSurvival==0] <- 0\n# plot how new predictor changes gender model\nggplot(train[train$Title=='woman',]) +\n    geom_jitter(aes(x=Pclass,y=predict,color=factor(Survived))) + \n    labs(title=\"36 female predictions change from gender model on training set\") +\n    labs(x=\"Pclass\",y=\"New Predictor\") +\n    geom_rect(alpha=0,color=\"black\",aes(xmin=2.5,xmax=3.5,ymin=-0.45,ymax=0.45))\ntable(train$Survived[train$Title=='woman' & train$predict==0]) \n # plot how new predictor changes gender model\nggplot(train[train$Title!='woman',]) +\n    geom_jitter(aes(x=Title,y=predict,color=factor(Survived))) +\n    labs(title=\"16 male predictions change from gender model on training set\") +\n    labs(x=\"Title\",y=\"New Predictor\") +\n    geom_rect(alpha=0,color=\"black\",aes(xmin=0.5,xmax=1.5,ymin=0.55,ymax=1.45))\ntable(train$Survived[train$Title!='woman' & train$predict==1]) \n # Perform 25 trials of 10-fold cross validation\ntrials = 25; sum = 0\nfor (j in 1:trials){\nx = sample(1:890); s = 0\nfor (i in 0:9){\n    # Engineer \"woman-child-groups\" from training subset\n    train$Surname <- substring(train$Name,0,regexpr(\",\",train$Name)-1)\n    train$Surname[train$Title=='man'] <- 'noGroup'\n    train$SurnameFreq <- ave(1:891,train$Surname,FUN=length)\n    train$Surname[train$SurnameFreq<=1] <- 'noGroup'\n    train$SurnameSurvival <- NA\n    # calculate training subset's surname survival rate\n    train$SurnameSurvival[-x[1:89+i*89]] <- ave(train$Survived[-x[1:89+i*89]],train$Surname[-x[1:89+i*89]])\n    # calculate testing subset's surname survival rate from training set's rate\n    for (k in x[1:89+i*89]) \n    train$SurnameSurvival[k] <- train$SurnameSurvival[which(!is.na(train$SurnameSurvival) & train$Surname==train$Surname[k])[1]]\n    # apply gender model plus new predictor\n    train$predict <- 0\n    train$predict[train$Title=='woman'] <- 1\n    train$predict[train$Title=='boy' & train$SurnameSurvival==1] <- 1\n    train$predict[train$Title=='woman' & train$SurnameSurvival==0] <- 0\n    c = sum(abs(train$predict[x[1:89+i*89]] - train$Survived[x[1:89+i*89]]))\n    s = s + c\n}\ncat( sprintf(\"Trial %d has 10-fold CV accuracy = %f\\n\",j,1-s/890))\nsum = sum + 1-s/890\n}\ncat(sprintf(\"Average 10-fold CV accuracy from %d trials = %f\\n\",trials,sum/trials)) \n # engineer titles in test dataset\ntest$Title <- substring(test$Name,regexpr(\",\",test$Name)+2,regexpr(\"\\\\.\",test$Name)-1)\ntest$Title[test$Title %in% c(\"Capt\",\"Don\",\"Major\",\"Col\",\"Rev\",\"Dr\",\"Sir\",\"Mr\",\"Jonkheer\")] <- \"man\"\ntest$Title[test$Title %in% c(\"Dona\",\"the Countess\",\"Mme\",\"Mlle\",\"Ms\",\"Miss\",\"Lady\",\"Mrs\")] <- \"woman\"\ntest$Title[test$Title %in% c(\"Master\")] <- \"boy\"\n# engineer \"woman-child-groups\" for entire dataset\ntest$Survived <- NA; test$predict <- NA; train$AdjustedSurvival <- NULL\ntrain$Surname <- NULL; train$SurnameFreq <- NULL; train$SurnameSurvival <- NULL\nallData <- rbind(train,test)\nallData$Surname <- substring(allData$Name,0,regexpr(\",\",allData$Name)-1)\nallData$Surname[allData$Title=='man'] <- 'noGroup'\nallData$SurnameFreq <- ave(1:1309,allData$Surname,FUN=length)\nallData$Surname[allData$SurnameFreq<=1] <- 'noGroup'\n# using only \"Name\" scores 0.81818, correcting surname groups with \"Ticket\" scores 0.82296\n# search single woman and children and correct surname groups using Ticket\nfor (i in which(allData$Title!='man' & allData$Surname=='noGroup'))\n    allData$Surname[i] = allData$Surname[allData$Ticket==allData$Ticket[i]][1]\nallData$Surname[is.na(allData$Surname)] <- 'noGroup'\n# calculate \"woman-child-group\" survival rates\nallData$SurnameSurvival <- NA\nallData$SurnameSurvival[1:891] <- ave(allData$Survived[1:891],allData$Surname[1:891])\nfor (i in 892:1309) allData$SurnameSurvival[i] <- allData$SurnameSurvival[which(allData$Surname==allData$Surname[i])[1]]\n# apply gender model plus new predictor to test dataset\nallData$predict <- 0\nallData$predict[allData$Title=='woman'] <- 1\nallData$predict[allData$Title=='boy' & allData$SurnameSurvival==1] <- 1\nallData$predict[allData$Title=='woman' & allData$SurnameSurvival==0] <- 0\n# plot predictions\nggplot(allData[892:1309,]) +\n    geom_jitter(aes(x=Title,y=predict)) +\n    labs(title=\"18 predictions change from gender model on test set\") +\n    labs(x=\"Title\",y=\"Prediction\") +\n    geom_rect(alpha=0,color=\"black\",aes(xmin=0.5,xmax=1.5,ymin=0.55,ymax=1.45)) +\n    geom_rect(alpha=0,color=\"black\",aes(xmin=2.5,xmax=3.5,ymin=-0.45,ymax=0.45))\n \n # create CSV file to submit\nsubmit <- data.frame(PassengerId = allData$PassengerId[892:1309], Survived = allData$predict[892:1309])\nwrite.csv(submit,\"genderSurnameModel.csv\",row.names=F) \n leader = read.csv(\"../input/kaggle-titanic-leaderboard-may-15-2018/leaderboard.csv\")\nc1 = \"gray30\"; c2 = \"black\"\ncolors <- c(rep(c1,6),c2,rep(c1,28),c2,rep(c1,11),c2,rep(c1,16))\nggplot(data=leader[leader$Score>=0.6 & leader$Score<=0.9,]) +\n    geom_histogram (aes(x=Score),binwidth=1/209,fill=colors,na.rm=TRUE) +\n    xlim(c(0.6,0.9)) + ylim(c(0,1500)) +\n    labs(title='Histogram of Kaggle titanic public leaderboard scores, May 15 2018') +\n    annotate('text', x=0.65, y=300, label='0.627 - All dead model') +\n    annotate('text', x=0.662, y=240, label='(=131/209) top 96%') +\n    annotate('text', x=0.79, y=1450, label='0.766 - Gender model') +\n    annotate('text', x=0.805, y=1390, label='(=160/209) top 64%') +\n    annotate('text', x=0.86, y=300, label='0.823 - Surname model') +\n    annotate('text', x=0.86, y=240, label='(=172/209) top 2%')",
+    "markdown_source": "# Simple Titanic model using only Name scores 82%!\n\nI'm excited to share my Titanic solution and write my first Kaggle notebook. I've had a fun time building dozens of models. Below is my favorite. This simple model only uses one feature more than the gender model but it scores an impressive 82% and outperforms 97% of all 11,300 Kaggle submissions which are all more complicated! Using only passenger names, gender is deduced from title (Mr. Mrs. etc), children are determined from title (Master.), and family groups are identified by duplicate surnames (last names).  \n  \nUPDATE: By combining this model with another that classifies single passengers, 85% was achieved [here][1]. Also 83% and 84% were achieved [here][2].\n\n![model](https://raw.githubusercontent.com/cdeotte/Kaggle_Images/main/2020/tree4.jpeg)\n\nFirst I'll explain how it works. Then, I'll present my model, code, cross validation, and submission results.\n\n![rules](https://raw.githubusercontent.com/cdeotte/Kaggle_Images/main/2020/rules2.jpeg)\n\n## Let's begin with the gender model... \nIf we just predict females survive and males perish, we cross validate at 78.6% and receive a public leaderboard score of 76.6%.  \n \n[1]:https://www.kaggle.com/cdeotte/titanic-wcg-xgboost-0-84688\n[2]:https://www.kaggle.com/cdeotte/titantic-mega-model-0-84210 \n To improve upon the gender model, we need to determine which males survive and which females perish. By analyzing the Titanic data, we find that many male survivors are among the youth, namely 52.5% = 21/40 of males under 16 years old survive. And most females who perish are among Pclass==3 passengers, namely 50% = 72/144 of Pclass==3 females perish. \n So let's focus on identifying surviving males and perishing females among these 184 passengers. The data indicates that woman and children were prioritized in rescue. Furthermore it appears that woman and children from the same family survived or perished together. There are 142 females and boys in the training dataset who have a relative (indicated by surname) in the training set that is a female or boy. Let's refer to these 142 passengers as members of \"woman-child-groups\".\n\n## Let's engineer a new feature to identify \"woman-child-groups\" and their survival rate. \n The above code shows that 124 out of 142 \"woman-child-group\" passengers were part of \"woman-child-groups\" that either entirely lived or died. And 18 out of the 142 were part of \"woman-child-groups\" with mixed survival. Among these 18 passengers, 14 lived or died according to their \"woman-child-groups'\" average fate and 4 did not. Therefore among all 142 \"woman-child-group\" passengers,  97.2% = 138/142 lived or died according to their \"woman-child-groups'\" average fate. Our new engineered feature is a near perfect predictor! Wow!\n\n## Cross validation\nLet's try to guess what our cross validation accuracy will be when we use this new engineered feature in addition to the gender model before cross validating. \n The two plots above show that our new predictor changes 52 = 36 + 16 predictions from the gender model when applied to the training set. And amazingly, nearly all of the changes are now correct predictions! Wow! Therefore our cross validation accuracy should be 0.786 + (48/891) =  0.840. Let's test it. \n Our cross validation accuracy is 83.6% which is near our guess of 84.0%. \n\n## Submission to Kaggle and evaluation\nLet's try to guess what our Kaggle leaderboard score will be using this new engineered feature in addition to the gender model before submission. \n The plot above shows that our new predictor changes 18 = 10 + 8 predictions from the gender model when applied to the test set. We suspect that all 18 of these chages are correct because nearly all the changes that our predictor made to the training dataset's gender model were correct. Therefore, we would expect that our Kaggle public leaderboard score will be 0.766 + (18/418) =  0.809. \n ![result](https://raw.githubusercontent.com/cdeotte/Kaggle_Images/main/2020/surnameModel.png)\n\nWow awesome! Our Kaggle public leaderboard score result is 82.3% which is better than our guess of 80.9%. Luck was in our favor! The test dataset contains 418 observations. The public leaderboard only scores 209 of them. Remember that we changed 18 predictions from the gender model and suspect that all those changes are correct. The gender model receives a score of 0.766 = 160/209, therefore it appears that 12 of our 18 changes were included in our public leaderboard score, (160+12)/209 = 0.823. (Note that only using \"Name\" to engineer surname groups scores 0.818. Additionally correcting surname groups with \"Ticket\" scores 0.823.)\n\n## Reflection\n\nHow much more predictive information is hiding in the training dataset besides gender and family association? Based on comparison to other submitted models, it seems not much. Since November 2012,  11300 teams have scrutinized the Titanic dataset and searched for predictive features but only 2% of those models outperform this simple gender surname model. Therefore it seems that gender and family association capture most of the prediction power of the training dataset.\n\nI would love to discover ways to improve this model. I welcome everyone to fork this kernel and try to improve its predictive accuracy. Currently it only makes 18 wise predictions and then uses the gender model. Therefore if you can build a model that can predict the other 400 remaining passengers better than the gender model, you will have a Titanic solution scoring over 82%! [More info here][1]. Good luck and have fun!  \n\n![model](https://raw.githubusercontent.com/cdeotte/Kaggle_Images/main/2020/tree3.jpeg)  \n  \n[1]:https://www.kaggle.com/c/titanic/discussion/57447 \n Thank you everyone for reading my first notebook. I enjoyed writing it and look forward to your comments.  \n\nUPDATE: By combining this model with another that classifies single passengers, 85% was achieved [here][13]. Also 83% and 84% were achieved [here][14].\n\n## References\n* [Trevor Stephens][1]: Great tutorial for learning both R and Titanic modeling.\n* [Itai Blitzer][2]: Titanic code providing hints for engineered features.\n* [Megan Risdal][3]: Kaggle\u2019s Titanic tutorial with great ggplot R visualizations.\n* [Jason][4]: Kaggle\u2019s Titanic tutorial with great ggplot R visualizations.\n* [Michael Hahsler][5]: Shows R syntax for applying different machine learning models.\n* [Chris Deotte][6]: Interactive visualizations showing different machine learning models.\n* [Chris Deotte][7]: Interactive visualization showing neural network model.\n* [Oscar Takeshita][8]: Provides Titanic benchmarks of possible scores\n* [bhb2572][9]: Are Titanic models scoring 80% or better luck or science?\n* [Cathy O'Neil & Rachel Schutt][10]: Doing Data Science\n* [James, Witten, Hastie, & Tibshirani][11]: An Introduction to Statisical Learning\n* [Aurelien Geron][12]: Hands-On Machine Learning with Scikit-Learn & TensorFlow\n\n[1]:http://trevorstephens.com/kaggle-titanic-tutorial/getting-started-with-r/\n[2]:https://www.kaggle.com/itaibl/kaggle-titanic-tutorial-passing-82-part-1/code\n[3]:https://www.kaggle.com/mrisdal/exploring-survival-on-the-titanic\n[4]:https://www.kaggle.com/jasonm/large-families-not-good-for-survival\n[5]:http://michael.hahsler.net/SMU/EMIS7332/R/viz_classifier.html\n[6]:http://www.ccom.ucsd.edu/~cdeotte/programs/classify.html\n[7]:http://www.ccom.ucsd.edu/~cdeotte/programs/neuralnetwork.html\n[8]:https://www.kaggle.com/pliptor/how-am-i-doing-with-my-score/\n[9]:https://www.kaggle.com/c/titanic/discussion/56254\n[10]:https://www.amazon.com/Doing-Data-Science-Straight-Frontline/dp/1449358659\n[11]:https://www.amazon.com/Introduction-Statistical-Learning-Applications-Statistics/dp/1461471370/\n[12]:https://www.amazon.com/Hands-Machine-Learning-Scikit-Learn-TensorFlow/dp/1491962291/\n[13]:https://www.kaggle.com/cdeotte/titanic-wcg-xgboost-0-84688\n[14]:https://www.kaggle.com/cdeotte/titantic-mega-model-0-84210",
+    "n_cells": 22,
+    "n_code_cells": 13,
+    "n_markdown_cells": 9,
+    "n_raw_cells": 0,
+    "n_outputs": 13,
+    "r_code_cells": 0.5909090909090909,
+    "r_markdown_cells": 0.4090909090909091,
+    "r_raw_cells": 0.0,
+    "r_outputs": 1.0,
+    "n_exceptions": 0,
+    "r_exceptions": 0.0,
+    "n_lines": 207,
+    "n_lines_code": 131,
+    "n_lines_markdown": 76,
+    "lines_per_cell": [
+        17,
+        6,
+        1,
+        3,
+        3,
+        13,
+        2,
+        2,
+        4,
+        4,
+        1,
+        14,
+        7,
+        1,
+        28,
+        4,
+        35,
+        1,
+        3,
+        13,
+        13,
+        32
+    ],
+    "lines_per_code_cell": [
+        6,
+        3,
+        13,
+        2,
+        2,
+        4,
+        1,
+        14,
+        7,
+        28,
+        35,
+        3,
+        13
+    ],
+    "lines_per_markdown_cell": [
+        17,
+        1,
+        3,
+        4,
+        1,
+        4,
+        1,
+        13,
+        32
+    ],
+    "ave_lines_per_cell": 9.409090909090908,
+    "ave_lines_per_code_cell": 10.076923076923077,
+    "ave_lines_per_markdown_cell": 8.444444444444445,
+    "max_lines_per_cell": 35,
+    "max_lines_per_code_cell": 35,
+    "max_lines_per_markdown_cell": 32,
+    "min_lines_per_cell": 1,
+    "min_lines_per_code_cell": 1,
+    "min_lines_per_markdown_cell": 1,
+    "n_chars": 15521,
+    "n_chars_code": 7600,
+    "n_chars_markdown": 7921,
+    "chars_per_cell": [
+        1313,
+        321,
+        352,
+        183,
+        571,
+        819,
+        115,
+        116,
+        254,
+        714,
+        16,
+        830,
+        413,
+        303,
+        1377,
+        259,
+        2123,
+        389,
+        186,
+        1797,
+        847,
+        2223
+    ],
+    "chars_per_code_cell": [
+        321,
+        183,
+        819,
+        115,
+        116,
+        254,
+        16,
+        830,
+        413,
+        1377,
+        2123,
+        186,
+        847
+    ],
+    "chars_per_markdown_cell": [
+        1313,
+        352,
+        571,
+        714,
+        303,
+        259,
+        389,
+        1797,
+        2223
+    ],
+    "ave_chars_per_line": 74.98067632850241,
+    "ave_chars_per_cell": 705.5,
+    "ave_chars_per_code_cell": 584.6153846153846,
+    "ave_chars_per_markdown_cell": 880.1111111111111,
+    "max_chars_per_cell": 2223,
+    "max_chars_per_code_cell": 2123,
+    "max_chars_per_markdownell": 2223,
+    "min_chars_per_cell": 16,
+    "min_chars_per_code_cell": 16,
+    "min_chars_per_markdown_cell": 259,
+    "r_lines_code": 0.6328502415458938,
+    "r_lines_markdown": 0.3671497584541063,
+    "r_chars_markdown": 0.5103408285548612,
+    "r_chars_code": 0.4896591714451388,
+    "all_cells": [
+        {
+            "source": "# Simple Titanic model using only Name scores 82%!\n\nI'm excited to share my Titanic solution and write my first Kaggle notebook. I've had a fun time building dozens of models. Below is my favorite. This simple model only uses one feature more than the gender model but it scores an impressive 82% and outperforms 97% of all 11,300 Kaggle submissions which are all more complicated! Using only passenger names, gender is deduced from title (Mr. Mrs. etc), children are determined from title (Master.), and family groups are identified by duplicate surnames (last names).  \n  \nUPDATE: By combining this model with another that classifies single passengers, 85% was achieved [here][1]. Also 83% and 84% were achieved [here][2].\n\n![model](https://raw.githubusercontent.com/cdeotte/Kaggle_Images/main/2020/tree4.jpeg)\n\nFirst I'll explain how it works. Then, I'll present my model, code, cross validation, and submission results.\n\n![rules](https://raw.githubusercontent.com/cdeotte/Kaggle_Images/main/2020/rules2.jpeg)\n\n## Let's begin with the gender model... \nIf we just predict females survive and males perish, we cross validate at 78.6% and receive a public leaderboard score of 76.6%.  \n \n[1]:https://www.kaggle.com/cdeotte/titanic-wcg-xgboost-0-84688\n[2]:https://www.kaggle.com/cdeotte/titantic-mega-model-0-84210",
+            "mc_idx": 0,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "# The gender model achieves a 76.6% leaderboard score\ntest <- read.csv(\"../input/titanic/test.csv\",stringsAsFactors=F)\ntest$Survived[test$Sex=='male'] <- 0\ntest$Survived[test$Sex=='female'] <- 1\nsubmit <- data.frame(PassengerId = test$PassengerId, Survived = test$Survived)\nwrite.csv(submit,\"genderModel.csv\",row.names=F)",
+            "mc_idx": 1,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Model_Train",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 1.0,
+                "Model_Evaluation": 1.0,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.5,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 2
+                },
+                "Model_Evaluation": {
+                    "model": 2
+                },
+                "Model_Interpretation": {
+                    "model": 2
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {
+                    "write": 1
+                },
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    0,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 1,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 0,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "To improve upon the gender model, we need to determine which males survive and which females perish. By analyzing the Titanic data, we find that many male survivors are among the youth, namely 52.5% = 21/40 of males under 16 years old survive. And most females who perish are among Pclass==3 passengers, namely 50% = 72/144 of Pclass==3 females perish.",
+            "mc_idx": 2,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "train <- read.csv(\"../input/titanic/train.csv\",stringsAsFactors=F)\ntable(train$Survived[train$Sex=='male' & train$Age<16])\ntable(train$Survived[train$Sex=='female' & train$Pclass==3])",
+            "mc_idx": 3,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    1,
+                    1,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "\n 0  1 \n19 21 ",
+                        "\n 0  1 \n72 72 "
+                    ]
+                },
+                "mc_idx": 3,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 1,
+                "o_idx": 1
+            }
+        },
+        {
+            "source": "So let's focus on identifying surviving males and perishing females among these 184 passengers. The data indicates that woman and children were prioritized in rescue. Furthermore it appears that woman and children from the same family survived or perished together. There are 142 females and boys in the training dataset who have a relative (indicated by surname) in the training set that is a female or boy. Let's refer to these 142 passengers as members of \"woman-child-groups\".\n\n## Let's engineer a new feature to identify \"woman-child-groups\" and their survival rate.",
+            "mc_idx": 4,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "# engineer titles in training dataset\ntrain$Title <- substring(train$Name,regexpr(\",\",train$Name)+2,regexpr(\"\\\\.\",train$Name)-1)\ntrain$Title[train$Title %in% c(\"Capt\",\"Don\",\"Major\",\"Col\",\"Rev\",\"Dr\",\"Sir\",\"Mr\",\"Jonkheer\")] <- \"man\"\ntrain$Title[train$Title %in% c(\"Dona\",\"the Countess\",\"Mme\",\"Mlle\",\"Ms\",\"Miss\",\"Lady\",\"Mrs\")] <- \"woman\"\ntrain$Title[train$Title %in% c(\"Master\")] <- \"boy\"\n# engineer \"woman-child-groups\" for training dataset\ntrain$Surname <- substring(train$Name,0,regexpr(\",\",train$Name)-1)\ntrain$Surname[train$Title=='man'] <- 'noGroup'\ntrain$SurnameFreq <- ave(1:891,train$Surname,FUN=length)\ntrain$Surname[train$SurnameFreq<=1] <- 'noGroup'\n# calculate \"woman-child-group\" survival rates\ntrain$SurnameSurvival <- ave(train$Survived,train$Surname)\ntable(train$SurnameSurvival[train$Surname!='noGroup'])",
+            "mc_idx": 5,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Data_Extraction",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 1.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {
+                    "dataset": 2
+                },
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    2,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "\n                0 0.142857142857143 0.333333333333333              0.75 \n               50                 7                 3                 8 \n                1 \n               74 "
+                    ]
+                },
+                "mc_idx": 5,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 2,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# the following \"woman-child-groups\" all perish\nx=train[train$SurnameSurvival==0,c(\"Surname\")]; unique(x[order(x)])",
+            "mc_idx": 6,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    3,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        " [1] \"Barbara\"       \"Boulos\"        \"Bourke\"        \"Ford\"         \n [5] \"Goodwin\"       \"Jussila\"       \"Lefebre\"       \"Palsson\"      \n [9] \"Panula\"        \"Rice\"          \"Sage\"          \"Skoog\"        \n[13] \"Strom\"         \"Van Impe\"      \"Vander Planke\" \"Zabour\"       "
+                    ]
+                },
+                "mc_idx": 6,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 3,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# the following \"woman-child-groups\" all survive\nx=train[train$SurnameSurvival==1,c(\"Surname\")]; unique(x[order(x)])",
+            "mc_idx": 7,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    4,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        " [1] \"Baclini\"       \"Becker\"        \"Brown\"         \"Caldwell\"     \n [5] \"Collyer\"       \"Coutts\"        \"Doling\"        \"Fortune\"      \n [9] \"Goldsmith\"     \"Graham\"        \"Hamalainen\"    \"Harper\"       \n[13] \"Hart\"          \"Hays\"          \"Herman\"        \"Hippach\"      \n[17] \"Johnson\"       \"Kelly\"         \"Laroche\"       \"Mellinger\"    \n[21] \"Moor\"          \"Moubarek\"      \"Murphy\"        \"Navratil\"     \n[25] \"Newell\"        \"Nicola-Yarred\" \"Peter\"         \"Quick\"        \n[29] \"Richards\"      \"Ryerson\"       \"Sandstrom\"     \"Taussig\"      \n[33] \"West\"          \"Wick\"         "
+                    ]
+                },
+                "mc_idx": 7,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 4,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# the following \"woman-child-groups\" have mixed survival\ntrain[train$SurnameSurvival==1/7,c(\"Surname\",\"Title\",\"Survived\")]\ntrain[train$SurnameSurvival==1/3,c(\"Surname\",\"Title\",\"Survived\")]\ntrain[train$SurnameSurvival==3/4,c(\"Surname\",\"Title\",\"Survived\")]",
+            "mc_idx": 8,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    5,
+                    2,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "    Surname   Title Survived\n69  Andersson woman 1       \n120 Andersson woman 0       \n542 Andersson woman 0       \n543 Andersson woman 0       \n611 Andersson woman 0       \n814 Andersson woman 0       \n851 Andersson boy   0       ",
+                        "    Surname Title Survived\n298 Allison woman 0       \n306 Allison boy   1       \n499 Allison woman 0       ",
+                        "    Surname Title Survived\n26  Asplund woman 1       \n183 Asplund boy   0       \n234 Asplund woman 1       \n262 Asplund boy   1       \n436 Carter  woman 1       \n764 Carter  woman 1       \n803 Carter  boy   1       \n855 Carter  woman 0       "
+                    ]
+                },
+                "mc_idx": 8,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 5,
+                "o_idx": 2
+            }
+        },
+        {
+            "source": "The above code shows that 124 out of 142 \"woman-child-group\" passengers were part of \"woman-child-groups\" that either entirely lived or died. And 18 out of the 142 were part of \"woman-child-groups\" with mixed survival. Among these 18 passengers, 14 lived or died according to their \"woman-child-groups'\" average fate and 4 did not. Therefore among all 142 \"woman-child-group\" passengers,  97.2% = 138/142 lived or died according to their \"woman-child-groups'\" average fate. Our new engineered feature is a near perfect predictor! Wow!\n\n## Cross validation\nLet's try to guess what our cross validation accuracy will be when we use this new engineered feature in addition to the gender model before cross validating.",
+            "mc_idx": 9,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "library(ggplot2)",
+            "mc_idx": 10,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Visualization",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 1.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "ggplot": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    6,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 10,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 6,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# adjust survival rates for use on training set\ntrain$AdjustedSurvival <- (train$SurnameSurvival * train$SurnameFreq - train$Survived) / (train$SurnameFreq-1)\n# apply gender model plus new predictor to training set\ntrain$predict <- 0\ntrain$predict[train$Title=='woman'] <- 1\ntrain$predict[train$Title=='boy' & train$AdjustedSurvival==1] <- 1\ntrain$predict[train$Title=='woman' & train$AdjustedSurvival==0] <- 0\n# plot how new predictor changes gender model\nggplot(train[train$Title=='woman',]) +\n    geom_jitter(aes(x=Pclass,y=predict,color=factor(Survived))) + \n    labs(title=\"36 female predictions change from gender model on training set\") +\n    labs(x=\"Pclass\",y=\"New Predictor\") +\n    geom_rect(alpha=0,color=\"black\",aes(xmin=2.5,xmax=3.5,ymin=-0.45,ymax=0.45))\ntable(train$Survived[train$Title=='woman' & train$predict==0])",
+            "mc_idx": 11,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Model_Train",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 1.0,
+                "Model_Evaluation": 1.0,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.3333333333333333,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 3
+                },
+                "Model_Evaluation": {
+                    "model": 3
+                },
+                "Model_Interpretation": {
+                    "model": 3
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "ggplot": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/images/d0094_c007_o002_image_0.png",
+                    7,
+                    2,
+                    0
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "\n 0  1 \n35  1 "
+                    ]
+                },
+                "mc_idx": 11,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 7,
+                "o_idx": 2
+            }
+        },
+        {
+            "source": "# plot how new predictor changes gender model\nggplot(train[train$Title!='woman',]) +\n    geom_jitter(aes(x=Title,y=predict,color=factor(Survived))) +\n    labs(title=\"16 male predictions change from gender model on training set\") +\n    labs(x=\"Title\",y=\"New Predictor\") +\n    geom_rect(alpha=0,color=\"black\",aes(xmin=0.5,xmax=1.5,ymin=0.55,ymax=1.45))\ntable(train$Survived[train$Title!='woman' & train$predict==1])",
+            "mc_idx": 12,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Model_Train",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 1.0,
+                "Model_Evaluation": 1.0,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.5,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 2
+                },
+                "Model_Evaluation": {
+                    "model": 2
+                },
+                "Model_Interpretation": {
+                    "model": 2
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "ggplot": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/images/d0094_c008_o002_image_1.png",
+                    8,
+                    2,
+                    1
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "\n 0  1 \n 1 15 "
+                    ]
+                },
+                "mc_idx": 12,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 8,
+                "o_idx": 2
+            }
+        },
+        {
+            "source": "The two plots above show that our new predictor changes 52 = 36 + 16 predictions from the gender model when applied to the training set. And amazingly, nearly all of the changes are now correct predictions! Wow! Therefore our cross validation accuracy should be 0.786 + (48/891) =  0.840. Let's test it.",
+            "mc_idx": 13,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "# Perform 25 trials of 10-fold cross validation\ntrials = 25; sum = 0\nfor (j in 1:trials){\nx = sample(1:890); s = 0\nfor (i in 0:9){\n    # Engineer \"woman-child-groups\" from training subset\n    train$Surname <- substring(train$Name,0,regexpr(\",\",train$Name)-1)\n    train$Surname[train$Title=='man'] <- 'noGroup'\n    train$SurnameFreq <- ave(1:891,train$Surname,FUN=length)\n    train$Surname[train$SurnameFreq<=1] <- 'noGroup'\n    train$SurnameSurvival <- NA\n    # calculate training subset's surname survival rate\n    train$SurnameSurvival[-x[1:89+i*89]] <- ave(train$Survived[-x[1:89+i*89]],train$Surname[-x[1:89+i*89]])\n    # calculate testing subset's surname survival rate from training set's rate\n    for (k in x[1:89+i*89]) \n    train$SurnameSurvival[k] <- train$SurnameSurvival[which(!is.na(train$SurnameSurvival) & train$Surname==train$Surname[k])[1]]\n    # apply gender model plus new predictor\n    train$predict <- 0\n    train$predict[train$Title=='woman'] <- 1\n    train$predict[train$Title=='boy' & train$SurnameSurvival==1] <- 1\n    train$predict[train$Title=='woman' & train$SurnameSurvival==0] <- 0\n    c = sum(abs(train$predict[x[1:89+i*89]] - train$Survived[x[1:89+i*89]]))\n    s = s + c\n}\ncat( sprintf(\"Trial %d has 10-fold CV accuracy = %f\\n\",j,1-s/890))\nsum = sum + 1-s/890\n}\ncat(sprintf(\"Average 10-fold CV accuracy from %d trials = %f\\n\",trials,sum/trials))",
+            "mc_idx": 14,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Model_Train",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 1.0,
+                "Model_Evaluation": 1.0,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 1.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 1
+                },
+                "Model_Evaluation": {
+                    "model": 1
+                },
+                "Model_Interpretation": {
+                    "model": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {
+                    "testing": 1
+                },
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    9,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "Trial 1 has 10-fold CV accuracy = 0.837079\nTrial 2 has 10-fold CV accuracy = 0.837079\nTrial 3 has 10-fold CV accuracy = 0.839326\nTrial 4 has 10-fold CV accuracy = 0.837079\nTrial 5 has 10-fold CV accuracy = 0.838202\nTrial 6 has 10-fold CV accuracy = 0.833708\nTrial 7 has 10-fold CV accuracy = 0.832584\nTrial 8 has 10-fold CV accuracy = 0.834831\nTrial 9 has 10-fold CV accuracy = 0.839326\nTrial 10 has 10-fold CV accuracy = 0.839326\nTrial 11 has 10-fold CV accuracy = 0.838202\nTrial 12 has 10-fold CV accuracy = 0.834831\nTrial 13 has 10-fold CV accuracy = 0.832584\nTrial 14 has 10-fold CV accuracy = 0.838202\nTrial 15 has 10-fold CV accuracy = 0.832584\nTrial 16 has 10-fold CV accuracy = 0.832584\nTrial 17 has 10-fold CV accuracy = 0.840449\nTrial 18 has 10-fold CV accuracy = 0.841573\nTrial 19 has 10-fold CV accuracy = 0.837079\nTrial 20 has 10-fold CV accuracy = 0.835955\nTrial 21 has 10-fold CV accuracy = 0.839326\nTrial 22 has 10-fold CV accuracy = 0.837079\nTrial 23 has 10-fold CV accuracy = 0.832584\nTrial 24 has 10-fold CV accuracy = 0.837079\nTrial 25 has 10-fold CV accuracy = 0.835955\nAverage 10-fold CV accuracy from 25 trials = 0.836584\n"
+                    ]
+                },
+                "mc_idx": 14,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 9,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "Our cross validation accuracy is 83.6% which is near our guess of 84.0%. \n\n## Submission to Kaggle and evaluation\nLet's try to guess what our Kaggle leaderboard score will be using this new engineered feature in addition to the gender model before submission.",
+            "mc_idx": 15,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "# engineer titles in test dataset\ntest$Title <- substring(test$Name,regexpr(\",\",test$Name)+2,regexpr(\"\\\\.\",test$Name)-1)\ntest$Title[test$Title %in% c(\"Capt\",\"Don\",\"Major\",\"Col\",\"Rev\",\"Dr\",\"Sir\",\"Mr\",\"Jonkheer\")] <- \"man\"\ntest$Title[test$Title %in% c(\"Dona\",\"the Countess\",\"Mme\",\"Mlle\",\"Ms\",\"Miss\",\"Lady\",\"Mrs\")] <- \"woman\"\ntest$Title[test$Title %in% c(\"Master\")] <- \"boy\"\n# engineer \"woman-child-groups\" for entire dataset\ntest$Survived <- NA; test$predict <- NA; train$AdjustedSurvival <- NULL\ntrain$Surname <- NULL; train$SurnameFreq <- NULL; train$SurnameSurvival <- NULL\nallData <- rbind(train,test)\nallData$Surname <- substring(allData$Name,0,regexpr(\",\",allData$Name)-1)\nallData$Surname[allData$Title=='man'] <- 'noGroup'\nallData$SurnameFreq <- ave(1:1309,allData$Surname,FUN=length)\nallData$Surname[allData$SurnameFreq<=1] <- 'noGroup'\n# using only \"Name\" scores 0.81818, correcting surname groups with \"Ticket\" scores 0.82296\n# search single woman and children and correct surname groups using Ticket\nfor (i in which(allData$Title!='man' & allData$Surname=='noGroup'))\n    allData$Surname[i] = allData$Surname[allData$Ticket==allData$Ticket[i]][1]\nallData$Surname[is.na(allData$Surname)] <- 'noGroup'\n# calculate \"woman-child-group\" survival rates\nallData$SurnameSurvival <- NA\nallData$SurnameSurvival[1:891] <- ave(allData$Survived[1:891],allData$Surname[1:891])\nfor (i in 892:1309) allData$SurnameSurvival[i] <- allData$SurnameSurvival[which(allData$Surname==allData$Surname[i])[1]]\n# apply gender model plus new predictor to test dataset\nallData$predict <- 0\nallData$predict[allData$Title=='woman'] <- 1\nallData$predict[allData$Title=='boy' & allData$SurnameSurvival==1] <- 1\nallData$predict[allData$Title=='woman' & allData$SurnameSurvival==0] <- 0\n# plot predictions\nggplot(allData[892:1309,]) +\n    geom_jitter(aes(x=Title,y=predict)) +\n    labs(title=\"18 predictions change from gender model on test set\") +\n    labs(x=\"Title\",y=\"Prediction\") +\n    geom_rect(alpha=0,color=\"black\",aes(xmin=0.5,xmax=1.5,ymin=0.55,ymax=1.45)) +\n    geom_rect(alpha=0,color=\"black\",aes(xmin=2.5,xmax=3.5,ymin=-0.45,ymax=0.45))\n",
+            "mc_idx": 16,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Data_Extraction",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 1.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.6666666666666666,
+                "Model_Evaluation": 0.6666666666666666,
+                "Model_Interpretation": 0.6666666666666666,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.3333333333333333,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {
+                    "dataset": 3
+                },
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 2
+                },
+                "Model_Evaluation": {
+                    "model": 2
+                },
+                "Model_Interpretation": {
+                    "model": 2
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "ggplot": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/images/d0094_c010_o001_image_2.png",
+                    10,
+                    1,
+                    2
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 16,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 10,
+                "o_idx": 1
+            }
+        },
+        {
+            "source": "The plot above shows that our new predictor changes 18 = 10 + 8 predictions from the gender model when applied to the test set. We suspect that all 18 of these chages are correct because nearly all the changes that our predictor made to the training dataset's gender model were correct. Therefore, we would expect that our Kaggle public leaderboard score will be 0.766 + (18/418) =  0.809.",
+            "mc_idx": 17,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "# create CSV file to submit\nsubmit <- data.frame(PassengerId = allData$PassengerId[892:1309], Survived = allData$predict[892:1309])\nwrite.csv(submit,\"genderSurnameModel.csv\",row.names=F)",
+            "mc_idx": 18,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Model_Train",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 1.0,
+                "Model_Evaluation": 1.0,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 1.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 1
+                },
+                "Model_Evaluation": {
+                    "model": 1
+                },
+                "Model_Interpretation": {
+                    "model": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {
+                    "write": 1
+                },
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    11,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 18,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 11,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "![result](https://raw.githubusercontent.com/cdeotte/Kaggle_Images/main/2020/surnameModel.png)\n\nWow awesome! Our Kaggle public leaderboard score result is 82.3% which is better than our guess of 80.9%. Luck was in our favor! The test dataset contains 418 observations. The public leaderboard only scores 209 of them. Remember that we changed 18 predictions from the gender model and suspect that all those changes are correct. The gender model receives a score of 0.766 = 160/209, therefore it appears that 12 of our 18 changes were included in our public leaderboard score, (160+12)/209 = 0.823. (Note that only using \"Name\" to engineer surname groups scores 0.818. Additionally correcting surname groups with \"Ticket\" scores 0.823.)\n\n## Reflection\n\nHow much more predictive information is hiding in the training dataset besides gender and family association? Based on comparison to other submitted models, it seems not much. Since November 2012,  11300 teams have scrutinized the Titanic dataset and searched for predictive features but only 2% of those models outperform this simple gender surname model. Therefore it seems that gender and family association capture most of the prediction power of the training dataset.\n\nI would love to discover ways to improve this model. I welcome everyone to fork this kernel and try to improve its predictive accuracy. Currently it only makes 18 wise predictions and then uses the gender model. Therefore if you can build a model that can predict the other 400 remaining passengers better than the gender model, you will have a Titanic solution scoring over 82%! [More info here][1]. Good luck and have fun!  \n\n![model](https://raw.githubusercontent.com/cdeotte/Kaggle_Images/main/2020/tree3.jpeg)  \n  \n[1]:https://www.kaggle.com/c/titanic/discussion/57447",
+            "mc_idx": 19,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "leader = read.csv(\"../input/kaggle-titanic-leaderboard-may-15-2018/leaderboard.csv\")\nc1 = \"gray30\"; c2 = \"black\"\ncolors <- c(rep(c1,6),c2,rep(c1,28),c2,rep(c1,11),c2,rep(c1,16))\nggplot(data=leader[leader$Score>=0.6 & leader$Score<=0.9,]) +\n    geom_histogram (aes(x=Score),binwidth=1/209,fill=colors,na.rm=TRUE) +\n    xlim(c(0.6,0.9)) + ylim(c(0,1500)) +\n    labs(title='Histogram of Kaggle titanic public leaderboard scores, May 15 2018') +\n    annotate('text', x=0.65, y=300, label='0.627 - All dead model') +\n    annotate('text', x=0.662, y=240, label='(=131/209) top 96%') +\n    annotate('text', x=0.79, y=1450, label='0.766 - Gender model') +\n    annotate('text', x=0.805, y=1390, label='(=160/209) top 64%') +\n    annotate('text', x=0.86, y=300, label='0.823 - Surname model') +\n    annotate('text', x=0.86, y=240, label='(=172/209) top 2%')",
+            "mc_idx": 20,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Model_Train",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 1.0,
+                "Model_Evaluation": 1.0,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.3333333333333333,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 3
+                },
+                "Model_Evaluation": {
+                    "model": 3
+                },
+                "Model_Interpretation": {
+                    "model": 3
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "ggplot": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/images/d0094_c012_o001_image_3.png",
+                    12,
+                    1,
+                    3
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 20,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 12,
+                "o_idx": 1
+            }
+        },
+        {
+            "source": "Thank you everyone for reading my first notebook. I enjoyed writing it and look forward to your comments.  \n\nUPDATE: By combining this model with another that classifies single passengers, 85% was achieved [here][13]. Also 83% and 84% were achieved [here][14].\n\n## References\n* [Trevor Stephens][1]: Great tutorial for learning both R and Titanic modeling.\n* [Itai Blitzer][2]: Titanic code providing hints for engineered features.\n* [Megan Risdal][3]: Kaggle\u2019s Titanic tutorial with great ggplot R visualizations.\n* [Jason][4]: Kaggle\u2019s Titanic tutorial with great ggplot R visualizations.\n* [Michael Hahsler][5]: Shows R syntax for applying different machine learning models.\n* [Chris Deotte][6]: Interactive visualizations showing different machine learning models.\n* [Chris Deotte][7]: Interactive visualization showing neural network model.\n* [Oscar Takeshita][8]: Provides Titanic benchmarks of possible scores\n* [bhb2572][9]: Are Titanic models scoring 80% or better luck or science?\n* [Cathy O'Neil & Rachel Schutt][10]: Doing Data Science\n* [James, Witten, Hastie, & Tibshirani][11]: An Introduction to Statisical Learning\n* [Aurelien Geron][12]: Hands-On Machine Learning with Scikit-Learn & TensorFlow\n\n[1]:http://trevorstephens.com/kaggle-titanic-tutorial/getting-started-with-r/\n[2]:https://www.kaggle.com/itaibl/kaggle-titanic-tutorial-passing-82-part-1/code\n[3]:https://www.kaggle.com/mrisdal/exploring-survival-on-the-titanic\n[4]:https://www.kaggle.com/jasonm/large-families-not-good-for-survival\n[5]:http://michael.hahsler.net/SMU/EMIS7332/R/viz_classifier.html\n[6]:http://www.ccom.ucsd.edu/~cdeotte/programs/classify.html\n[7]:http://www.ccom.ucsd.edu/~cdeotte/programs/neuralnetwork.html\n[8]:https://www.kaggle.com/pliptor/how-am-i-doing-with-my-score/\n[9]:https://www.kaggle.com/c/titanic/discussion/56254\n[10]:https://www.amazon.com/Doing-Data-Science-Straight-Frontline/dp/1449358659\n[11]:https://www.amazon.com/Introduction-Statistical-Learning-Applications-Statistics/dp/1461471370/\n[12]:https://www.amazon.com/Hands-Machine-Learning-Scikit-Learn-TensorFlow/dp/1491962291/\n[13]:https://www.kaggle.com/cdeotte/titanic-wcg-xgboost-0-84688\n[14]:https://www.kaggle.com/cdeotte/titantic-mega-model-0-84210",
+            "mc_idx": 21,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        }
+    ],
+    "code_cells": [
+        {
+            "source": "# The gender model achieves a 76.6% leaderboard score\ntest <- read.csv(\"../input/titanic/test.csv\",stringsAsFactors=F)\ntest$Survived[test$Sex=='male'] <- 0\ntest$Survived[test$Sex=='female'] <- 1\nsubmit <- data.frame(PassengerId = test$PassengerId, Survived = test$Survived)\nwrite.csv(submit,\"genderModel.csv\",row.names=F)",
+            "mc_idx": 1,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Model_Train",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 1.0,
+                "Model_Evaluation": 1.0,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.5,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 2
+                },
+                "Model_Evaluation": {
+                    "model": 2
+                },
+                "Model_Interpretation": {
+                    "model": 2
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {
+                    "write": 1
+                },
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    0,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 1,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 0,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "train <- read.csv(\"../input/titanic/train.csv\",stringsAsFactors=F)\ntable(train$Survived[train$Sex=='male' & train$Age<16])\ntable(train$Survived[train$Sex=='female' & train$Pclass==3])",
+            "mc_idx": 3,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    1,
+                    1,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "\n 0  1 \n19 21 ",
+                        "\n 0  1 \n72 72 "
+                    ]
+                },
+                "mc_idx": 3,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 1,
+                "o_idx": 1
+            }
+        },
+        {
+            "source": "# engineer titles in training dataset\ntrain$Title <- substring(train$Name,regexpr(\",\",train$Name)+2,regexpr(\"\\\\.\",train$Name)-1)\ntrain$Title[train$Title %in% c(\"Capt\",\"Don\",\"Major\",\"Col\",\"Rev\",\"Dr\",\"Sir\",\"Mr\",\"Jonkheer\")] <- \"man\"\ntrain$Title[train$Title %in% c(\"Dona\",\"the Countess\",\"Mme\",\"Mlle\",\"Ms\",\"Miss\",\"Lady\",\"Mrs\")] <- \"woman\"\ntrain$Title[train$Title %in% c(\"Master\")] <- \"boy\"\n# engineer \"woman-child-groups\" for training dataset\ntrain$Surname <- substring(train$Name,0,regexpr(\",\",train$Name)-1)\ntrain$Surname[train$Title=='man'] <- 'noGroup'\ntrain$SurnameFreq <- ave(1:891,train$Surname,FUN=length)\ntrain$Surname[train$SurnameFreq<=1] <- 'noGroup'\n# calculate \"woman-child-group\" survival rates\ntrain$SurnameSurvival <- ave(train$Survived,train$Surname)\ntable(train$SurnameSurvival[train$Surname!='noGroup'])",
+            "mc_idx": 5,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Data_Extraction",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 1.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {
+                    "dataset": 2
+                },
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    2,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "\n                0 0.142857142857143 0.333333333333333              0.75 \n               50                 7                 3                 8 \n                1 \n               74 "
+                    ]
+                },
+                "mc_idx": 5,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 2,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# the following \"woman-child-groups\" all perish\nx=train[train$SurnameSurvival==0,c(\"Surname\")]; unique(x[order(x)])",
+            "mc_idx": 6,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    3,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        " [1] \"Barbara\"       \"Boulos\"        \"Bourke\"        \"Ford\"         \n [5] \"Goodwin\"       \"Jussila\"       \"Lefebre\"       \"Palsson\"      \n [9] \"Panula\"        \"Rice\"          \"Sage\"          \"Skoog\"        \n[13] \"Strom\"         \"Van Impe\"      \"Vander Planke\" \"Zabour\"       "
+                    ]
+                },
+                "mc_idx": 6,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 3,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# the following \"woman-child-groups\" all survive\nx=train[train$SurnameSurvival==1,c(\"Surname\")]; unique(x[order(x)])",
+            "mc_idx": 7,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    4,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        " [1] \"Baclini\"       \"Becker\"        \"Brown\"         \"Caldwell\"     \n [5] \"Collyer\"       \"Coutts\"        \"Doling\"        \"Fortune\"      \n [9] \"Goldsmith\"     \"Graham\"        \"Hamalainen\"    \"Harper\"       \n[13] \"Hart\"          \"Hays\"          \"Herman\"        \"Hippach\"      \n[17] \"Johnson\"       \"Kelly\"         \"Laroche\"       \"Mellinger\"    \n[21] \"Moor\"          \"Moubarek\"      \"Murphy\"        \"Navratil\"     \n[25] \"Newell\"        \"Nicola-Yarred\" \"Peter\"         \"Quick\"        \n[29] \"Richards\"      \"Ryerson\"       \"Sandstrom\"     \"Taussig\"      \n[33] \"West\"          \"Wick\"         "
+                    ]
+                },
+                "mc_idx": 7,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 4,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# the following \"woman-child-groups\" have mixed survival\ntrain[train$SurnameSurvival==1/7,c(\"Surname\",\"Title\",\"Survived\")]\ntrain[train$SurnameSurvival==1/3,c(\"Surname\",\"Title\",\"Survived\")]\ntrain[train$SurnameSurvival==3/4,c(\"Surname\",\"Title\",\"Survived\")]",
+            "mc_idx": 8,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    5,
+                    2,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "    Surname   Title Survived\n69  Andersson woman 1       \n120 Andersson woman 0       \n542 Andersson woman 0       \n543 Andersson woman 0       \n611 Andersson woman 0       \n814 Andersson woman 0       \n851 Andersson boy   0       ",
+                        "    Surname Title Survived\n298 Allison woman 0       \n306 Allison boy   1       \n499 Allison woman 0       ",
+                        "    Surname Title Survived\n26  Asplund woman 1       \n183 Asplund boy   0       \n234 Asplund woman 1       \n262 Asplund boy   1       \n436 Carter  woman 1       \n764 Carter  woman 1       \n803 Carter  boy   1       \n855 Carter  woman 0       "
+                    ]
+                },
+                "mc_idx": 8,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 5,
+                "o_idx": 2
+            }
+        },
+        {
+            "source": "library(ggplot2)",
+            "mc_idx": 10,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Visualization",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 1.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "ggplot": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    6,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 10,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 6,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# adjust survival rates for use on training set\ntrain$AdjustedSurvival <- (train$SurnameSurvival * train$SurnameFreq - train$Survived) / (train$SurnameFreq-1)\n# apply gender model plus new predictor to training set\ntrain$predict <- 0\ntrain$predict[train$Title=='woman'] <- 1\ntrain$predict[train$Title=='boy' & train$AdjustedSurvival==1] <- 1\ntrain$predict[train$Title=='woman' & train$AdjustedSurvival==0] <- 0\n# plot how new predictor changes gender model\nggplot(train[train$Title=='woman',]) +\n    geom_jitter(aes(x=Pclass,y=predict,color=factor(Survived))) + \n    labs(title=\"36 female predictions change from gender model on training set\") +\n    labs(x=\"Pclass\",y=\"New Predictor\") +\n    geom_rect(alpha=0,color=\"black\",aes(xmin=2.5,xmax=3.5,ymin=-0.45,ymax=0.45))\ntable(train$Survived[train$Title=='woman' & train$predict==0])",
+            "mc_idx": 11,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Model_Train",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 1.0,
+                "Model_Evaluation": 1.0,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.3333333333333333,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 3
+                },
+                "Model_Evaluation": {
+                    "model": 3
+                },
+                "Model_Interpretation": {
+                    "model": 3
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "ggplot": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/images/d0094_c007_o002_image_0.png",
+                    7,
+                    2,
+                    0
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "\n 0  1 \n35  1 "
+                    ]
+                },
+                "mc_idx": 11,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 7,
+                "o_idx": 2
+            }
+        },
+        {
+            "source": "# plot how new predictor changes gender model\nggplot(train[train$Title!='woman',]) +\n    geom_jitter(aes(x=Title,y=predict,color=factor(Survived))) +\n    labs(title=\"16 male predictions change from gender model on training set\") +\n    labs(x=\"Title\",y=\"New Predictor\") +\n    geom_rect(alpha=0,color=\"black\",aes(xmin=0.5,xmax=1.5,ymin=0.55,ymax=1.45))\ntable(train$Survived[train$Title!='woman' & train$predict==1])",
+            "mc_idx": 12,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Model_Train",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 1.0,
+                "Model_Evaluation": 1.0,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.5,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 2
+                },
+                "Model_Evaluation": {
+                    "model": 2
+                },
+                "Model_Interpretation": {
+                    "model": 2
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "ggplot": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/images/d0094_c008_o002_image_1.png",
+                    8,
+                    2,
+                    1
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "\n 0  1 \n 1 15 "
+                    ]
+                },
+                "mc_idx": 12,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 8,
+                "o_idx": 2
+            }
+        },
+        {
+            "source": "# Perform 25 trials of 10-fold cross validation\ntrials = 25; sum = 0\nfor (j in 1:trials){\nx = sample(1:890); s = 0\nfor (i in 0:9){\n    # Engineer \"woman-child-groups\" from training subset\n    train$Surname <- substring(train$Name,0,regexpr(\",\",train$Name)-1)\n    train$Surname[train$Title=='man'] <- 'noGroup'\n    train$SurnameFreq <- ave(1:891,train$Surname,FUN=length)\n    train$Surname[train$SurnameFreq<=1] <- 'noGroup'\n    train$SurnameSurvival <- NA\n    # calculate training subset's surname survival rate\n    train$SurnameSurvival[-x[1:89+i*89]] <- ave(train$Survived[-x[1:89+i*89]],train$Surname[-x[1:89+i*89]])\n    # calculate testing subset's surname survival rate from training set's rate\n    for (k in x[1:89+i*89]) \n    train$SurnameSurvival[k] <- train$SurnameSurvival[which(!is.na(train$SurnameSurvival) & train$Surname==train$Surname[k])[1]]\n    # apply gender model plus new predictor\n    train$predict <- 0\n    train$predict[train$Title=='woman'] <- 1\n    train$predict[train$Title=='boy' & train$SurnameSurvival==1] <- 1\n    train$predict[train$Title=='woman' & train$SurnameSurvival==0] <- 0\n    c = sum(abs(train$predict[x[1:89+i*89]] - train$Survived[x[1:89+i*89]]))\n    s = s + c\n}\ncat( sprintf(\"Trial %d has 10-fold CV accuracy = %f\\n\",j,1-s/890))\nsum = sum + 1-s/890\n}\ncat(sprintf(\"Average 10-fold CV accuracy from %d trials = %f\\n\",trials,sum/trials))",
+            "mc_idx": 14,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Model_Train",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 1.0,
+                "Model_Evaluation": 1.0,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 1.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 1
+                },
+                "Model_Evaluation": {
+                    "model": 1
+                },
+                "Model_Interpretation": {
+                    "model": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {
+                    "testing": 1
+                },
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    9,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "Trial 1 has 10-fold CV accuracy = 0.837079\nTrial 2 has 10-fold CV accuracy = 0.837079\nTrial 3 has 10-fold CV accuracy = 0.839326\nTrial 4 has 10-fold CV accuracy = 0.837079\nTrial 5 has 10-fold CV accuracy = 0.838202\nTrial 6 has 10-fold CV accuracy = 0.833708\nTrial 7 has 10-fold CV accuracy = 0.832584\nTrial 8 has 10-fold CV accuracy = 0.834831\nTrial 9 has 10-fold CV accuracy = 0.839326\nTrial 10 has 10-fold CV accuracy = 0.839326\nTrial 11 has 10-fold CV accuracy = 0.838202\nTrial 12 has 10-fold CV accuracy = 0.834831\nTrial 13 has 10-fold CV accuracy = 0.832584\nTrial 14 has 10-fold CV accuracy = 0.838202\nTrial 15 has 10-fold CV accuracy = 0.832584\nTrial 16 has 10-fold CV accuracy = 0.832584\nTrial 17 has 10-fold CV accuracy = 0.840449\nTrial 18 has 10-fold CV accuracy = 0.841573\nTrial 19 has 10-fold CV accuracy = 0.837079\nTrial 20 has 10-fold CV accuracy = 0.835955\nTrial 21 has 10-fold CV accuracy = 0.839326\nTrial 22 has 10-fold CV accuracy = 0.837079\nTrial 23 has 10-fold CV accuracy = 0.832584\nTrial 24 has 10-fold CV accuracy = 0.837079\nTrial 25 has 10-fold CV accuracy = 0.835955\nAverage 10-fold CV accuracy from 25 trials = 0.836584\n"
+                    ]
+                },
+                "mc_idx": 14,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 9,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# engineer titles in test dataset\ntest$Title <- substring(test$Name,regexpr(\",\",test$Name)+2,regexpr(\"\\\\.\",test$Name)-1)\ntest$Title[test$Title %in% c(\"Capt\",\"Don\",\"Major\",\"Col\",\"Rev\",\"Dr\",\"Sir\",\"Mr\",\"Jonkheer\")] <- \"man\"\ntest$Title[test$Title %in% c(\"Dona\",\"the Countess\",\"Mme\",\"Mlle\",\"Ms\",\"Miss\",\"Lady\",\"Mrs\")] <- \"woman\"\ntest$Title[test$Title %in% c(\"Master\")] <- \"boy\"\n# engineer \"woman-child-groups\" for entire dataset\ntest$Survived <- NA; test$predict <- NA; train$AdjustedSurvival <- NULL\ntrain$Surname <- NULL; train$SurnameFreq <- NULL; train$SurnameSurvival <- NULL\nallData <- rbind(train,test)\nallData$Surname <- substring(allData$Name,0,regexpr(\",\",allData$Name)-1)\nallData$Surname[allData$Title=='man'] <- 'noGroup'\nallData$SurnameFreq <- ave(1:1309,allData$Surname,FUN=length)\nallData$Surname[allData$SurnameFreq<=1] <- 'noGroup'\n# using only \"Name\" scores 0.81818, correcting surname groups with \"Ticket\" scores 0.82296\n# search single woman and children and correct surname groups using Ticket\nfor (i in which(allData$Title!='man' & allData$Surname=='noGroup'))\n    allData$Surname[i] = allData$Surname[allData$Ticket==allData$Ticket[i]][1]\nallData$Surname[is.na(allData$Surname)] <- 'noGroup'\n# calculate \"woman-child-group\" survival rates\nallData$SurnameSurvival <- NA\nallData$SurnameSurvival[1:891] <- ave(allData$Survived[1:891],allData$Surname[1:891])\nfor (i in 892:1309) allData$SurnameSurvival[i] <- allData$SurnameSurvival[which(allData$Surname==allData$Surname[i])[1]]\n# apply gender model plus new predictor to test dataset\nallData$predict <- 0\nallData$predict[allData$Title=='woman'] <- 1\nallData$predict[allData$Title=='boy' & allData$SurnameSurvival==1] <- 1\nallData$predict[allData$Title=='woman' & allData$SurnameSurvival==0] <- 0\n# plot predictions\nggplot(allData[892:1309,]) +\n    geom_jitter(aes(x=Title,y=predict)) +\n    labs(title=\"18 predictions change from gender model on test set\") +\n    labs(x=\"Title\",y=\"Prediction\") +\n    geom_rect(alpha=0,color=\"black\",aes(xmin=0.5,xmax=1.5,ymin=0.55,ymax=1.45)) +\n    geom_rect(alpha=0,color=\"black\",aes(xmin=2.5,xmax=3.5,ymin=-0.45,ymax=0.45))\n",
+            "mc_idx": 16,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Data_Extraction",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 1.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.6666666666666666,
+                "Model_Evaluation": 0.6666666666666666,
+                "Model_Interpretation": 0.6666666666666666,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.3333333333333333,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {
+                    "dataset": 3
+                },
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 2
+                },
+                "Model_Evaluation": {
+                    "model": 2
+                },
+                "Model_Interpretation": {
+                    "model": 2
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "ggplot": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/images/d0094_c010_o001_image_2.png",
+                    10,
+                    1,
+                    2
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 16,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 10,
+                "o_idx": 1
+            }
+        },
+        {
+            "source": "# create CSV file to submit\nsubmit <- data.frame(PassengerId = allData$PassengerId[892:1309], Survived = allData$predict[892:1309])\nwrite.csv(submit,\"genderSurnameModel.csv\",row.names=F)",
+            "mc_idx": 18,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Model_Train",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 1.0,
+                "Model_Evaluation": 1.0,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 1.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 1
+                },
+                "Model_Evaluation": {
+                    "model": 1
+                },
+                "Model_Interpretation": {
+                    "model": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {
+                    "write": 1
+                },
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    11,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 18,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 11,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "leader = read.csv(\"../input/kaggle-titanic-leaderboard-may-15-2018/leaderboard.csv\")\nc1 = \"gray30\"; c2 = \"black\"\ncolors <- c(rep(c1,6),c2,rep(c1,28),c2,rep(c1,11),c2,rep(c1,16))\nggplot(data=leader[leader$Score>=0.6 & leader$Score<=0.9,]) +\n    geom_histogram (aes(x=Score),binwidth=1/209,fill=colors,na.rm=TRUE) +\n    xlim(c(0.6,0.9)) + ylim(c(0,1500)) +\n    labs(title='Histogram of Kaggle titanic public leaderboard scores, May 15 2018') +\n    annotate('text', x=0.65, y=300, label='0.627 - All dead model') +\n    annotate('text', x=0.662, y=240, label='(=131/209) top 96%') +\n    annotate('text', x=0.79, y=1450, label='0.766 - Gender model') +\n    annotate('text', x=0.805, y=1390, label='(=160/209) top 64%') +\n    annotate('text', x=0.86, y=300, label='0.823 - Surname model') +\n    annotate('text', x=0.86, y=240, label='(=172/209) top 2%')",
+            "mc_idx": 20,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Model_Train",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 1.0,
+                "Model_Evaluation": 1.0,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.3333333333333333,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 3
+                },
+                "Model_Evaluation": {
+                    "model": 3
+                },
+                "Model_Interpretation": {
+                    "model": 3
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "ggplot": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/images/d0094_c012_o001_image_3.png",
+                    12,
+                    1,
+                    3
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 20,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 12,
+                "o_idx": 1
+            }
+        }
+    ],
+    "markdown_cells": [
+        {
+            "source": "# Simple Titanic model using only Name scores 82%!\n\nI'm excited to share my Titanic solution and write my first Kaggle notebook. I've had a fun time building dozens of models. Below is my favorite. This simple model only uses one feature more than the gender model but it scores an impressive 82% and outperforms 97% of all 11,300 Kaggle submissions which are all more complicated! Using only passenger names, gender is deduced from title (Mr. Mrs. etc), children are determined from title (Master.), and family groups are identified by duplicate surnames (last names).  \n  \nUPDATE: By combining this model with another that classifies single passengers, 85% was achieved [here][1]. Also 83% and 84% were achieved [here][2].\n\n![model](https://raw.githubusercontent.com/cdeotte/Kaggle_Images/main/2020/tree4.jpeg)\n\nFirst I'll explain how it works. Then, I'll present my model, code, cross validation, and submission results.\n\n![rules](https://raw.githubusercontent.com/cdeotte/Kaggle_Images/main/2020/rules2.jpeg)\n\n## Let's begin with the gender model... \nIf we just predict females survive and males perish, we cross validate at 78.6% and receive a public leaderboard score of 76.6%.  \n \n[1]:https://www.kaggle.com/cdeotte/titanic-wcg-xgboost-0-84688\n[2]:https://www.kaggle.com/cdeotte/titantic-mega-model-0-84210",
+            "mc_idx": 0,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "To improve upon the gender model, we need to determine which males survive and which females perish. By analyzing the Titanic data, we find that many male survivors are among the youth, namely 52.5% = 21/40 of males under 16 years old survive. And most females who perish are among Pclass==3 passengers, namely 50% = 72/144 of Pclass==3 females perish.",
+            "mc_idx": 2,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "So let's focus on identifying surviving males and perishing females among these 184 passengers. The data indicates that woman and children were prioritized in rescue. Furthermore it appears that woman and children from the same family survived or perished together. There are 142 females and boys in the training dataset who have a relative (indicated by surname) in the training set that is a female or boy. Let's refer to these 142 passengers as members of \"woman-child-groups\".\n\n## Let's engineer a new feature to identify \"woman-child-groups\" and their survival rate.",
+            "mc_idx": 4,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "The above code shows that 124 out of 142 \"woman-child-group\" passengers were part of \"woman-child-groups\" that either entirely lived or died. And 18 out of the 142 were part of \"woman-child-groups\" with mixed survival. Among these 18 passengers, 14 lived or died according to their \"woman-child-groups'\" average fate and 4 did not. Therefore among all 142 \"woman-child-group\" passengers,  97.2% = 138/142 lived or died according to their \"woman-child-groups'\" average fate. Our new engineered feature is a near perfect predictor! Wow!\n\n## Cross validation\nLet's try to guess what our cross validation accuracy will be when we use this new engineered feature in addition to the gender model before cross validating.",
+            "mc_idx": 9,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "The two plots above show that our new predictor changes 52 = 36 + 16 predictions from the gender model when applied to the training set. And amazingly, nearly all of the changes are now correct predictions! Wow! Therefore our cross validation accuracy should be 0.786 + (48/891) =  0.840. Let's test it.",
+            "mc_idx": 13,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "Our cross validation accuracy is 83.6% which is near our guess of 84.0%. \n\n## Submission to Kaggle and evaluation\nLet's try to guess what our Kaggle leaderboard score will be using this new engineered feature in addition to the gender model before submission.",
+            "mc_idx": 15,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "The plot above shows that our new predictor changes 18 = 10 + 8 predictions from the gender model when applied to the test set. We suspect that all 18 of these chages are correct because nearly all the changes that our predictor made to the training dataset's gender model were correct. Therefore, we would expect that our Kaggle public leaderboard score will be 0.766 + (18/418) =  0.809.",
+            "mc_idx": 17,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "![result](https://raw.githubusercontent.com/cdeotte/Kaggle_Images/main/2020/surnameModel.png)\n\nWow awesome! Our Kaggle public leaderboard score result is 82.3% which is better than our guess of 80.9%. Luck was in our favor! The test dataset contains 418 observations. The public leaderboard only scores 209 of them. Remember that we changed 18 predictions from the gender model and suspect that all those changes are correct. The gender model receives a score of 0.766 = 160/209, therefore it appears that 12 of our 18 changes were included in our public leaderboard score, (160+12)/209 = 0.823. (Note that only using \"Name\" to engineer surname groups scores 0.818. Additionally correcting surname groups with \"Ticket\" scores 0.823.)\n\n## Reflection\n\nHow much more predictive information is hiding in the training dataset besides gender and family association? Based on comparison to other submitted models, it seems not much. Since November 2012,  11300 teams have scrutinized the Titanic dataset and searched for predictive features but only 2% of those models outperform this simple gender surname model. Therefore it seems that gender and family association capture most of the prediction power of the training dataset.\n\nI would love to discover ways to improve this model. I welcome everyone to fork this kernel and try to improve its predictive accuracy. Currently it only makes 18 wise predictions and then uses the gender model. Therefore if you can build a model that can predict the other 400 remaining passengers better than the gender model, you will have a Titanic solution scoring over 82%! [More info here][1]. Good luck and have fun!  \n\n![model](https://raw.githubusercontent.com/cdeotte/Kaggle_Images/main/2020/tree3.jpeg)  \n  \n[1]:https://www.kaggle.com/c/titanic/discussion/57447",
+            "mc_idx": 19,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "Thank you everyone for reading my first notebook. I enjoyed writing it and look forward to your comments.  \n\nUPDATE: By combining this model with another that classifies single passengers, 85% was achieved [here][13]. Also 83% and 84% were achieved [here][14].\n\n## References\n* [Trevor Stephens][1]: Great tutorial for learning both R and Titanic modeling.\n* [Itai Blitzer][2]: Titanic code providing hints for engineered features.\n* [Megan Risdal][3]: Kaggle\u2019s Titanic tutorial with great ggplot R visualizations.\n* [Jason][4]: Kaggle\u2019s Titanic tutorial with great ggplot R visualizations.\n* [Michael Hahsler][5]: Shows R syntax for applying different machine learning models.\n* [Chris Deotte][6]: Interactive visualizations showing different machine learning models.\n* [Chris Deotte][7]: Interactive visualization showing neural network model.\n* [Oscar Takeshita][8]: Provides Titanic benchmarks of possible scores\n* [bhb2572][9]: Are Titanic models scoring 80% or better luck or science?\n* [Cathy O'Neil & Rachel Schutt][10]: Doing Data Science\n* [James, Witten, Hastie, & Tibshirani][11]: An Introduction to Statisical Learning\n* [Aurelien Geron][12]: Hands-On Machine Learning with Scikit-Learn & TensorFlow\n\n[1]:http://trevorstephens.com/kaggle-titanic-tutorial/getting-started-with-r/\n[2]:https://www.kaggle.com/itaibl/kaggle-titanic-tutorial-passing-82-part-1/code\n[3]:https://www.kaggle.com/mrisdal/exploring-survival-on-the-titanic\n[4]:https://www.kaggle.com/jasonm/large-families-not-good-for-survival\n[5]:http://michael.hahsler.net/SMU/EMIS7332/R/viz_classifier.html\n[6]:http://www.ccom.ucsd.edu/~cdeotte/programs/classify.html\n[7]:http://www.ccom.ucsd.edu/~cdeotte/programs/neuralnetwork.html\n[8]:https://www.kaggle.com/pliptor/how-am-i-doing-with-my-score/\n[9]:https://www.kaggle.com/c/titanic/discussion/56254\n[10]:https://www.amazon.com/Doing-Data-Science-Straight-Frontline/dp/1449358659\n[11]:https://www.amazon.com/Introduction-Statistical-Learning-Applications-Statistics/dp/1461471370/\n[12]:https://www.amazon.com/Hands-Machine-Learning-Scikit-Learn-TensorFlow/dp/1491962291/\n[13]:https://www.kaggle.com/cdeotte/titanic-wcg-xgboost-0-84688\n[14]:https://www.kaggle.com/cdeotte/titantic-mega-model-0-84210",
+            "mc_idx": 21,
+            "nb_idx": 94,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        }
+    ],
+    "sim_matrix": [],
+    "cell_sim_matrix": [],
+    "nb_order": [],
+    "summary_data_VA": null
+}

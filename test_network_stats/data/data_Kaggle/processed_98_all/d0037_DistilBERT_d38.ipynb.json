@@ -1,0 +1,3761 @@
+{
+    "nb_idx": 37,
+    "nb_name": "d0037",
+    "filename": "d38.ipynb",
+    "filepath": "data/data_Kaggle/raw/d38.ipynb",
+    "source": "# Introduction\n\n**I have carefully analyzed a lot of notebooks** and I have been working on this competition for some time. My goal in this notebook, is to bring you the best pieces of all required parts of this challenge.\n\nWe will start by loading data, EDA, Modelling and finally, evaluation and submission file.\n\n**Please upvote the notebook if it helps you.**\n\nEnjoy and be safe! \n # Load in our libraries\nimport pandas as pd\nimport numpy as np\nimport re\nimport sklearn\nimport xgboost as xgb\nimport seaborn as sns\nimport matplotlib.pyplot as plt\n%matplotlib inline\n\nimport plotly.offline as py\npy.init_notebook_mode(connected=True)\nimport plotly.graph_objs as go\nimport plotly.tools as tls\n\nimport warnings\nwarnings.filterwarnings('ignore')\n\n# Going to use these 5 base models for the stacking\nfrom sklearn.ensemble import (RandomForestClassifier, AdaBoostClassifier, \n                              GradientBoostingClassifier, ExtraTreesClassifier)\nfrom sklearn.svm import SVC \n # Load Data \n # Load in the train and test datasets\ntrain = pd.read_csv('../input/titanic/train.csv')\ntest = pd.read_csv('../input/titanic/test.csv')\n\n# Store our passenger ID for easy access\nPassengerId = test['PassengerId']\n\ntrain.head(3) \n train['Ticket_type'] = train['Ticket'].apply(lambda x: x[0:3])\ntrain['Ticket_type'] = train['Ticket_type'].astype('category')\ntrain['Ticket_type'] = train['Ticket_type'].cat.codes\n\ntest['Ticket_type'] = test['Ticket'].apply(lambda x: x[0:3])\ntest['Ticket_type'] = test['Ticket_type'].astype('category')\ntest['Ticket_type'] = test['Ticket_type'].cat.codes\n\ntrain.head(3) \n full_data = [train, test]\n\n# Some extra features, not necessarily important\n# Gives the length of the name\n# train['Name_length'] = train['Name'].apply(len)\n# test['Name_length'] = test['Name'].apply(len)\ntrain['Words_Count'] = train['Name'].apply(lambda x: len(x.split()))\ntest['Words_Count'] = test['Name'].apply(lambda x: len(x.split()))\n\n# Feature that tells whether a passenger had a cabin on the Titanic\ntrain['Has_Cabin'] = train[\"Cabin\"].apply(lambda x: 0 if type(x) == float else 1)\ntest['Has_Cabin'] = test[\"Cabin\"].apply(lambda x: 0 if type(x) == float else 1)\n\n# Feature engineering steps taken from Sina\n# Create new feature FamilySize as a combination of SibSp and Parch\nfor dataset in full_data:\n    dataset['FamilySize'] = dataset['SibSp'] + dataset['Parch'] + 1\n# Create new feature IsAlone from FamilySize\nfor dataset in full_data:\n    dataset['IsAlone'] = 0\n    dataset.loc[dataset['FamilySize'] == 1, 'IsAlone'] = 1\n# Remove all NULLS in the Embarked column\nfor dataset in full_data:\n    dataset['Embarked'] = dataset['Embarked'].fillna('S')\n# Remove all NULLS in the Fare column and create a new feature CategoricalFare\nfor dataset in full_data:\n    dataset['Fare'] = dataset['Fare'].fillna(train['Fare'].median())\ntrain['CategoricalFare'] = pd.qcut(train['Fare'], 4)\n# Create a New feature CategoricalAge\nfor dataset in full_data:\n    age_avg = dataset['Age'].mean()\n    age_std = dataset['Age'].std()\n    age_null_count = dataset['Age'].isnull().sum()\n    age_null_random_list = np.random.randint(age_avg - age_std, age_avg + age_std, size=age_null_count)\n    dataset['Age'][np.isnan(dataset['Age'])] = age_null_random_list\n    dataset['Age'] = dataset['Age'].astype(int)\ntrain['CategoricalAge'] = pd.cut(train['Age'], 5)\n# Define function to extract titles from passenger names\ndef get_title(name):\n    title_search = re.search(' ([A-Za-z]+)\\.', name)\n    # If the title exists, extract and return it.\n    if title_search:\n        return title_search.group(1)\n    return \"\"\n# Create a new feature Title, containing the titles of passenger names\nfor dataset in full_data:\n    dataset['Title'] = dataset['Name'].apply(get_title)\n# Group all non-common titles into one single grouping \"Rare\"\nfor dataset in full_data:\n    dataset['Title'] = dataset['Title'].replace(['Lady', 'Countess','Capt', 'Col','Don', 'Dr', 'Major', 'Rev', 'Sir', 'Jonkheer', 'Dona'], 'Rare')\n\n    dataset['Title'] = dataset['Title'].replace('Mlle', 'Miss')\n    dataset['Title'] = dataset['Title'].replace('Ms', 'Miss')\n    dataset['Title'] = dataset['Title'].replace('Mme', 'Mrs')\n\nfor dataset in full_data:\n    # Mapping Sex\n    dataset['Sex'] = dataset['Sex'].map( {'female': 0, 'male': 1} ).astype(int)\n    \n    # Mapping titles\n    title_mapping = {\"Mr\": 1, \"Miss\": 2, \"Mrs\": 3, \"Master\": 4, \"Rare\": 5}\n    dataset['Title'] = dataset['Title'].map(title_mapping)\n    dataset['Title'] = dataset['Title'].fillna(0)\n    \n    # Mapping Embarked\n    dataset['Embarked'] = dataset['Embarked'].map( {'S': 0, 'C': 1, 'Q': 2} ).astype(int)\n    \n    # Mapping Fare\n    dataset.loc[ dataset['Fare'] <= 7.91, 'Fare'] \t\t\t\t\t\t        = 0\n    dataset.loc[(dataset['Fare'] > 7.91) & (dataset['Fare'] <= 14.454), 'Fare'] = 1\n    dataset.loc[(dataset['Fare'] > 14.454) & (dataset['Fare'] <= 31), 'Fare']   = 2\n    dataset.loc[ dataset['Fare'] > 31, 'Fare'] \t\t\t\t\t\t\t        = 3\n    dataset['Fare'] = dataset['Fare'].astype(int)\n    \n    # Mapping Age\n    dataset.loc[ dataset['Age'] <= 16, 'Age'] \t\t\t\t\t       = 0\n    dataset.loc[(dataset['Age'] > 16) & (dataset['Age'] <= 32), 'Age'] = 1\n    dataset.loc[(dataset['Age'] > 32) & (dataset['Age'] <= 48), 'Age'] = 2\n    dataset.loc[(dataset['Age'] > 48) & (dataset['Age'] <= 64), 'Age'] = 3\n    dataset.loc[ dataset['Age'] > 64, 'Age'] = 4 ; \n # Feature selection\ndrop_elements = ['PassengerId', 'Name', 'Ticket', 'Cabin', 'SibSp']\ntrain = train.drop(drop_elements, axis = 1)\ntrain = train.drop(['CategoricalAge', 'CategoricalFare'], axis = 1)\ntest  = test.drop(drop_elements, axis = 1) \n train.head(3) \n ## Plots \n **Pearson Correlation Heatmap**\n\nlet us generate some correlation plots of the features to see how related one feature is to the next. To do so, we will utilise the Seaborn plotting package which allows us to plot heatmaps very conveniently as follows \n colormap = plt.cm.RdBu\nplt.figure(figsize=(14,12))\nplt.title('Pearson Correlation of Features', y=1.05, size=15)\nsns.heatmap(train.astype(float).corr(),linewidths=0.1,vmax=1.0, \n            square=True, cmap=colormap, linecolor='white', annot=True) \n **Takeaway from the Plots**\n\nOne thing that that the Pearson Correlation plot can tell us is that there are not too many features strongly correlated with one another. This is good from a point of view of feeding these features into your learning model because this means that there isn't much redundant or superfluous data in our training set and we are happy that each feature carries with it some unique information. Here are two most correlated features are that of Family size and Parch (Parents and Children). I'll still leave both features in for the purposes of this exercise.\n \n # Models \n ### XGBoost\n\nHere we choose the eXtremely famous library for boosted tree learning model, XGBoost. It was built to optimize large-scale boosted tree algorithms. For further information about the algorithm, check out the [official documentation][1].\n\n  [1]: https://xgboost.readthedocs.io/en/latest/\n\nAnyways, we call an XGBClassifier and fit it to the first-level train and target data and use the learned model to predict the test data as follows: \n y_train = train['Survived'].ravel()\ntrain = train.drop(['Survived'], axis=1)\nx_train = train.values # Creates an array of the train data\nx_test = test.values  \n gbm = xgb.XGBClassifier(\n    #learning_rate = 0.02,\n n_estimators= 2000,\n max_depth= 4,\n min_child_weight= 2,\n #gamma=1,\n gamma=0.9,                        \n subsample=0.8,\n colsample_bytree=0.8,\n objective= 'binary:logistic',\n nthread= -1,\n scale_pos_weight=1).fit(x_train, y_train)\nxgb_predictions = gbm.predict(x_test) \n StackingSubmission = pd.DataFrame({ 'PassengerId': PassengerId,\n                            'Survived': xgb_predictions }) \n Just a quick run down of the XGBoost parameters used in the model:\n\n**max_depth** : How deep you want to grow your tree. Beware if set to too high a number might run the risk of overfitting.\n\n**gamma** : minimum loss reduction required to make a further partition on a leaf node of the tree. The larger, the more conservative the algorithm will be.\n\n**eta** : step size shrinkage used in each boosting step to prevent overfitting \n ## Ensemble Modelling \n Ensemble modeling is a process where multiple diverse models are created to predict an outcome, either by using many different modeling algorithms or using different training data sets. The ensemble model then aggregates the prediction of each base model and results in once final prediction for the unseen data. The motivation for using ensemble models is to reduce the generalization error of the prediction. As long as the base models are diverse and independent, the prediction error of the model decreases when the ensemble approach is used. The approach seeks the wisdom of crowds in making a prediction. Even though the ensemble model has multiple base models within the model, it acts and performs as a single model. Most of the practical data mining solutions utilize ensemble modeling techniques. \n\n![ens](https://www.analyticsvidhya.com/wp-content/uploads/2015/09/bagging.png) \n \ndf1 = pd.read_csv('../input/91-genetic-algorithms-explained-using-geap/submission.csv')\ndf2 = pd.read_csv('../input/titanic-eda-fe-3-model-decision-tree-viz/submission_GA.csv')\ndf3 = pd.read_csv('../input/91-genetic-algorithms-explained-using-geap/submission.csv')\nx1=0.4; x2=0.3; df1.head() \n df_ensemble = df1.copy()\nk = 'Survived'\ndf_ensemble[k] =  x1*df1[k] + x2*df2[k] + (1.0-x1-x2)*df3[k]\ndf_ensemble[k] = df_ensemble[k].apply(lambda f: 1 if f>=0.5 else 0)\ndf_ensemble.to_csv('df_ensemble_pre.csv', index=False)\ndf_ensemble.head() \n df_ensemble = df1.copy()\nk = 'Survived'\ndf_ensemble[k] = x1*df1[k] + x2*df2[k] + (1.0-x1-x2)*StackingSubmission[k]\ndf_ensemble[k] = df_ensemble[k].apply(lambda f: 1 if f>=0.5 else 0)\ndf_ensemble.to_csv('df_ensemble.csv', index=False)\ndf_ensemble.head() \n # Evaluation \n ### Generating Ground truth \n import numpy as np\nimport pandas as pd\n\nimport os\nimport re\nimport warnings\n\nimport io\nimport requests\nurl=\"https://github.com/thisisjasonjafari/my-datascientise-handcode/raw/master/005-datavisualization/titanic.csv\"\ns=requests.get(url).content\nc=pd.read_csv(io.StringIO(s.decode('utf-8')))\n \ntest_data_with_labels = c\ntest_data = pd.read_csv('../input/titanic/test.csv')\n\nwarnings.filterwarnings('ignore')\n\nfor i, name in enumerate(test_data_with_labels['name']):\n    if '\"' in name:\n        test_data_with_labels['name'][i] = re.sub('\"', '', name)\n        \nfor i, name in enumerate(test_data['Name']):\n    if '\"' in name:\n        test_data['Name'][i] = re.sub('\"', '', name)\n        \nsurvived = []\n\nfor name in test_data['Name']:\n    survived.append(int(test_data_with_labels.loc[test_data_with_labels['name'] == name]['survived'].values[-1]))\n\n    \nsubmission = pd.read_csv('../input/titanic/gender_submission.csv')\nsubmission['Survived'] = survived\nsubmission.to_csv('ground_truth.csv', index=False) \n # Submission file\n\nFinally having trained and fit all our first-level and second-level models, we can now output the predictions into the proper format for submission to the Titanic competition as follows: \n # Generate Submission File \nStackingSubmission.to_csv(\"XGB.csv\", index=False)\nStackingSubmission.head()",
+    "code_source": "# Load in our libraries\nimport pandas as pd\nimport numpy as np\nimport re\nimport sklearn\nimport xgboost as xgb\nimport seaborn as sns\nimport matplotlib.pyplot as plt\n%matplotlib inline\n\nimport plotly.offline as py\npy.init_notebook_mode(connected=True)\nimport plotly.graph_objs as go\nimport plotly.tools as tls\n\nimport warnings\nwarnings.filterwarnings('ignore')\n\n# Going to use these 5 base models for the stacking\nfrom sklearn.ensemble import (RandomForestClassifier, AdaBoostClassifier, \n                              GradientBoostingClassifier, ExtraTreesClassifier)\nfrom sklearn.svm import SVC \n # Load in the train and test datasets\ntrain = pd.read_csv('../input/titanic/train.csv')\ntest = pd.read_csv('../input/titanic/test.csv')\n\n# Store our passenger ID for easy access\nPassengerId = test['PassengerId']\n\ntrain.head(3) \n train['Ticket_type'] = train['Ticket'].apply(lambda x: x[0:3])\ntrain['Ticket_type'] = train['Ticket_type'].astype('category')\ntrain['Ticket_type'] = train['Ticket_type'].cat.codes\n\ntest['Ticket_type'] = test['Ticket'].apply(lambda x: x[0:3])\ntest['Ticket_type'] = test['Ticket_type'].astype('category')\ntest['Ticket_type'] = test['Ticket_type'].cat.codes\n\ntrain.head(3) \n full_data = [train, test]\n\n# Some extra features, not necessarily important\n# Gives the length of the name\n# train['Name_length'] = train['Name'].apply(len)\n# test['Name_length'] = test['Name'].apply(len)\ntrain['Words_Count'] = train['Name'].apply(lambda x: len(x.split()))\ntest['Words_Count'] = test['Name'].apply(lambda x: len(x.split()))\n\n# Feature that tells whether a passenger had a cabin on the Titanic\ntrain['Has_Cabin'] = train[\"Cabin\"].apply(lambda x: 0 if type(x) == float else 1)\ntest['Has_Cabin'] = test[\"Cabin\"].apply(lambda x: 0 if type(x) == float else 1)\n\n# Feature engineering steps taken from Sina\n# Create new feature FamilySize as a combination of SibSp and Parch\nfor dataset in full_data:\n    dataset['FamilySize'] = dataset['SibSp'] + dataset['Parch'] + 1\n# Create new feature IsAlone from FamilySize\nfor dataset in full_data:\n    dataset['IsAlone'] = 0\n    dataset.loc[dataset['FamilySize'] == 1, 'IsAlone'] = 1\n# Remove all NULLS in the Embarked column\nfor dataset in full_data:\n    dataset['Embarked'] = dataset['Embarked'].fillna('S')\n# Remove all NULLS in the Fare column and create a new feature CategoricalFare\nfor dataset in full_data:\n    dataset['Fare'] = dataset['Fare'].fillna(train['Fare'].median())\ntrain['CategoricalFare'] = pd.qcut(train['Fare'], 4)\n# Create a New feature CategoricalAge\nfor dataset in full_data:\n    age_avg = dataset['Age'].mean()\n    age_std = dataset['Age'].std()\n    age_null_count = dataset['Age'].isnull().sum()\n    age_null_random_list = np.random.randint(age_avg - age_std, age_avg + age_std, size=age_null_count)\n    dataset['Age'][np.isnan(dataset['Age'])] = age_null_random_list\n    dataset['Age'] = dataset['Age'].astype(int)\ntrain['CategoricalAge'] = pd.cut(train['Age'], 5)\n# Define function to extract titles from passenger names\ndef get_title(name):\n    title_search = re.search(' ([A-Za-z]+)\\.', name)\n    # If the title exists, extract and return it.\n    if title_search:\n        return title_search.group(1)\n    return \"\"\n# Create a new feature Title, containing the titles of passenger names\nfor dataset in full_data:\n    dataset['Title'] = dataset['Name'].apply(get_title)\n# Group all non-common titles into one single grouping \"Rare\"\nfor dataset in full_data:\n    dataset['Title'] = dataset['Title'].replace(['Lady', 'Countess','Capt', 'Col','Don', 'Dr', 'Major', 'Rev', 'Sir', 'Jonkheer', 'Dona'], 'Rare')\n\n    dataset['Title'] = dataset['Title'].replace('Mlle', 'Miss')\n    dataset['Title'] = dataset['Title'].replace('Ms', 'Miss')\n    dataset['Title'] = dataset['Title'].replace('Mme', 'Mrs')\n\nfor dataset in full_data:\n    # Mapping Sex\n    dataset['Sex'] = dataset['Sex'].map( {'female': 0, 'male': 1} ).astype(int)\n    \n    # Mapping titles\n    title_mapping = {\"Mr\": 1, \"Miss\": 2, \"Mrs\": 3, \"Master\": 4, \"Rare\": 5}\n    dataset['Title'] = dataset['Title'].map(title_mapping)\n    dataset['Title'] = dataset['Title'].fillna(0)\n    \n    # Mapping Embarked\n    dataset['Embarked'] = dataset['Embarked'].map( {'S': 0, 'C': 1, 'Q': 2} ).astype(int)\n    \n    # Mapping Fare\n    dataset.loc[ dataset['Fare'] <= 7.91, 'Fare'] \t\t\t\t\t\t        = 0\n    dataset.loc[(dataset['Fare'] > 7.91) & (dataset['Fare'] <= 14.454), 'Fare'] = 1\n    dataset.loc[(dataset['Fare'] > 14.454) & (dataset['Fare'] <= 31), 'Fare']   = 2\n    dataset.loc[ dataset['Fare'] > 31, 'Fare'] \t\t\t\t\t\t\t        = 3\n    dataset['Fare'] = dataset['Fare'].astype(int)\n    \n    # Mapping Age\n    dataset.loc[ dataset['Age'] <= 16, 'Age'] \t\t\t\t\t       = 0\n    dataset.loc[(dataset['Age'] > 16) & (dataset['Age'] <= 32), 'Age'] = 1\n    dataset.loc[(dataset['Age'] > 32) & (dataset['Age'] <= 48), 'Age'] = 2\n    dataset.loc[(dataset['Age'] > 48) & (dataset['Age'] <= 64), 'Age'] = 3\n    dataset.loc[ dataset['Age'] > 64, 'Age'] = 4 ; \n # Feature selection\ndrop_elements = ['PassengerId', 'Name', 'Ticket', 'Cabin', 'SibSp']\ntrain = train.drop(drop_elements, axis = 1)\ntrain = train.drop(['CategoricalAge', 'CategoricalFare'], axis = 1)\ntest  = test.drop(drop_elements, axis = 1) \n train.head(3) \n colormap = plt.cm.RdBu\nplt.figure(figsize=(14,12))\nplt.title('Pearson Correlation of Features', y=1.05, size=15)\nsns.heatmap(train.astype(float).corr(),linewidths=0.1,vmax=1.0, \n            square=True, cmap=colormap, linecolor='white', annot=True) \n y_train = train['Survived'].ravel()\ntrain = train.drop(['Survived'], axis=1)\nx_train = train.values # Creates an array of the train data\nx_test = test.values  \n gbm = xgb.XGBClassifier(\n    #learning_rate = 0.02,\n n_estimators= 2000,\n max_depth= 4,\n min_child_weight= 2,\n #gamma=1,\n gamma=0.9,                        \n subsample=0.8,\n colsample_bytree=0.8,\n objective= 'binary:logistic',\n nthread= -1,\n scale_pos_weight=1).fit(x_train, y_train)\nxgb_predictions = gbm.predict(x_test) \n StackingSubmission = pd.DataFrame({ 'PassengerId': PassengerId,\n                            'Survived': xgb_predictions }) \n \ndf1 = pd.read_csv('../input/91-genetic-algorithms-explained-using-geap/submission.csv')\ndf2 = pd.read_csv('../input/titanic-eda-fe-3-model-decision-tree-viz/submission_GA.csv')\ndf3 = pd.read_csv('../input/91-genetic-algorithms-explained-using-geap/submission.csv')\nx1=0.4; x2=0.3; df1.head() \n df_ensemble = df1.copy()\nk = 'Survived'\ndf_ensemble[k] =  x1*df1[k] + x2*df2[k] + (1.0-x1-x2)*df3[k]\ndf_ensemble[k] = df_ensemble[k].apply(lambda f: 1 if f>=0.5 else 0)\ndf_ensemble.to_csv('df_ensemble_pre.csv', index=False)\ndf_ensemble.head() \n df_ensemble = df1.copy()\nk = 'Survived'\ndf_ensemble[k] = x1*df1[k] + x2*df2[k] + (1.0-x1-x2)*StackingSubmission[k]\ndf_ensemble[k] = df_ensemble[k].apply(lambda f: 1 if f>=0.5 else 0)\ndf_ensemble.to_csv('df_ensemble.csv', index=False)\ndf_ensemble.head() \n import numpy as np\nimport pandas as pd\n\nimport os\nimport re\nimport warnings\n\nimport io\nimport requests\nurl=\"https://github.com/thisisjasonjafari/my-datascientise-handcode/raw/master/005-datavisualization/titanic.csv\"\ns=requests.get(url).content\nc=pd.read_csv(io.StringIO(s.decode('utf-8')))\n \ntest_data_with_labels = c\ntest_data = pd.read_csv('../input/titanic/test.csv')\n\nwarnings.filterwarnings('ignore')\n\nfor i, name in enumerate(test_data_with_labels['name']):\n    if '\"' in name:\n        test_data_with_labels['name'][i] = re.sub('\"', '', name)\n        \nfor i, name in enumerate(test_data['Name']):\n    if '\"' in name:\n        test_data['Name'][i] = re.sub('\"', '', name)\n        \nsurvived = []\n\nfor name in test_data['Name']:\n    survived.append(int(test_data_with_labels.loc[test_data_with_labels['name'] == name]['survived'].values[-1]))\n\n    \nsubmission = pd.read_csv('../input/titanic/gender_submission.csv')\nsubmission['Survived'] = survived\nsubmission.to_csv('ground_truth.csv', index=False) \n # Generate Submission File \nStackingSubmission.to_csv(\"XGB.csv\", index=False)\nStackingSubmission.head()",
+    "markdown_source": "# Introduction\n\n**I have carefully analyzed a lot of notebooks** and I have been working on this competition for some time. My goal in this notebook, is to bring you the best pieces of all required parts of this challenge.\n\nWe will start by loading data, EDA, Modelling and finally, evaluation and submission file.\n\n**Please upvote the notebook if it helps you.**\n\nEnjoy and be safe! \n # Load Data \n ## Plots \n **Pearson Correlation Heatmap**\n\nlet us generate some correlation plots of the features to see how related one feature is to the next. To do so, we will utilise the Seaborn plotting package which allows us to plot heatmaps very conveniently as follows \n **Takeaway from the Plots**\n\nOne thing that that the Pearson Correlation plot can tell us is that there are not too many features strongly correlated with one another. This is good from a point of view of feeding these features into your learning model because this means that there isn't much redundant or superfluous data in our training set and we are happy that each feature carries with it some unique information. Here are two most correlated features are that of Family size and Parch (Parents and Children). I'll still leave both features in for the purposes of this exercise.\n \n # Models \n ### XGBoost\n\nHere we choose the eXtremely famous library for boosted tree learning model, XGBoost. It was built to optimize large-scale boosted tree algorithms. For further information about the algorithm, check out the [official documentation][1].\n\n  [1]: https://xgboost.readthedocs.io/en/latest/\n\nAnyways, we call an XGBClassifier and fit it to the first-level train and target data and use the learned model to predict the test data as follows: \n Just a quick run down of the XGBoost parameters used in the model:\n\n**max_depth** : How deep you want to grow your tree. Beware if set to too high a number might run the risk of overfitting.\n\n**gamma** : minimum loss reduction required to make a further partition on a leaf node of the tree. The larger, the more conservative the algorithm will be.\n\n**eta** : step size shrinkage used in each boosting step to prevent overfitting \n ## Ensemble Modelling \n Ensemble modeling is a process where multiple diverse models are created to predict an outcome, either by using many different modeling algorithms or using different training data sets. The ensemble model then aggregates the prediction of each base model and results in once final prediction for the unseen data. The motivation for using ensemble models is to reduce the generalization error of the prediction. As long as the base models are diverse and independent, the prediction error of the model decreases when the ensemble approach is used. The approach seeks the wisdom of crowds in making a prediction. Even though the ensemble model has multiple base models within the model, it acts and performs as a single model. Most of the practical data mining solutions utilize ensemble modeling techniques. \n\n![ens](https://www.analyticsvidhya.com/wp-content/uploads/2015/09/bagging.png) \n # Evaluation \n ### Generating Ground truth \n # Submission file\n\nFinally having trained and fit all our first-level and second-level models, we can now output the predictions into the proper format for submission to the Titanic competition as follows:",
+    "n_cells": 28,
+    "n_code_cells": 15,
+    "n_markdown_cells": 13,
+    "n_raw_cells": 0,
+    "n_outputs": 15,
+    "r_code_cells": 0.5357142857142857,
+    "r_markdown_cells": 0.4642857142857143,
+    "r_raw_cells": 0.0,
+    "r_outputs": 1.0,
+    "n_exceptions": 0,
+    "r_exceptions": 0.0,
+    "n_lines": 246,
+    "n_lines_code": 204,
+    "n_lines_markdown": 42,
+    "lines_per_cell": [
+        9,
+        22,
+        1,
+        8,
+        9,
+        80,
+        5,
+        1,
+        1,
+        3,
+        5,
+        4,
+        1,
+        7,
+        4,
+        13,
+        2,
+        7,
+        1,
+        3,
+        5,
+        6,
+        6,
+        1,
+        1,
+        35,
+        3,
+        3
+    ],
+    "lines_per_code_cell": [
+        22,
+        8,
+        9,
+        80,
+        5,
+        1,
+        5,
+        4,
+        13,
+        2,
+        5,
+        6,
+        6,
+        35,
+        3
+    ],
+    "lines_per_markdown_cell": [
+        9,
+        1,
+        1,
+        3,
+        4,
+        1,
+        7,
+        7,
+        1,
+        3,
+        1,
+        1,
+        3
+    ],
+    "ave_lines_per_cell": 8.785714285714286,
+    "ave_lines_per_code_cell": 13.6,
+    "ave_lines_per_markdown_cell": 3.230769230769231,
+    "max_lines_per_cell": 80,
+    "max_lines_per_code_cell": 80,
+    "max_lines_per_markdown_cell": 9,
+    "min_lines_per_cell": 1,
+    "min_lines_per_code_cell": 1,
+    "min_lines_per_markdown_cell": 1,
+    "n_chars": 11224,
+    "n_chars_code": 7949,
+    "n_chars_markdown": 3275,
+    "chars_per_cell": [
+        383,
+        594,
+        11,
+        226,
+        369,
+        3764,
+        242,
+        13,
+        8,
+        251,
+        248,
+        585,
+        8,
+        448,
+        158,
+        321,
+        122,
+        429,
+        21,
+        887,
+        292,
+        242,
+        252,
+        12,
+        27,
+        1003,
+        205,
+        103
+    ],
+    "chars_per_code_cell": [
+        594,
+        226,
+        369,
+        3764,
+        242,
+        13,
+        248,
+        158,
+        321,
+        122,
+        292,
+        242,
+        252,
+        1003,
+        103
+    ],
+    "chars_per_markdown_cell": [
+        383,
+        11,
+        8,
+        251,
+        585,
+        8,
+        448,
+        429,
+        21,
+        887,
+        12,
+        27,
+        205
+    ],
+    "ave_chars_per_line": 45.6260162601626,
+    "ave_chars_per_cell": 400.85714285714283,
+    "ave_chars_per_code_cell": 529.9333333333333,
+    "ave_chars_per_markdown_cell": 251.92307692307693,
+    "max_chars_per_cell": 3764,
+    "max_chars_per_code_cell": 3764,
+    "max_chars_per_markdownell": 887,
+    "min_chars_per_cell": 8,
+    "min_chars_per_code_cell": 13,
+    "min_chars_per_markdown_cell": 8,
+    "r_lines_code": 0.8292682926829268,
+    "r_lines_markdown": 0.17073170731707318,
+    "r_chars_markdown": 0.2917854597291518,
+    "r_chars_code": 0.7082145402708482,
+    "all_cells": [
+        {
+            "source": "# Introduction\n\n**I have carefully analyzed a lot of notebooks** and I have been working on this competition for some time. My goal in this notebook, is to bring you the best pieces of all required parts of this challenge.\n\nWe will start by loading data, EDA, Modelling and finally, evaluation and submission file.\n\n**Please upvote the notebook if it helps you.**\n\nEnjoy and be safe!",
+            "mc_idx": 0,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "# Load in our libraries\nimport pandas as pd\nimport numpy as np\nimport re\nimport sklearn\nimport xgboost as xgb\nimport seaborn as sns\nimport matplotlib.pyplot as plt\n%matplotlib inline\n\nimport plotly.offline as py\npy.init_notebook_mode(connected=True)\nimport plotly.graph_objs as go\nimport plotly.tools as tls\n\nimport warnings\nwarnings.filterwarnings('ignore')\n\n# Going to use these 5 base models for the stacking\nfrom sklearn.ensemble import (RandomForestClassifier, AdaBoostClassifier, \n                              GradientBoostingClassifier, ExtraTreesClassifier)\nfrom sklearn.svm import SVC",
+            "mc_idx": 1,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.03816793893129771,
+                "Data_Transform": 0.007633587786259542,
+                "Model_Train": 0.04580152671755725,
+                "Model_Evaluation": 0.007633587786259542,
+                "Model_Interpretation": 0.015267175572519083,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.030534351145038167,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "import ": 13
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "plotly": 3,
+                    "matplotlib": 2
+                },
+                "Data_Transform": {
+                    "stack": 1
+                },
+                "Model_Train": {
+                    "model": 1,
+                    "randomforestclassifier": 2,
+                    "gradientboostingclassifier": 1,
+                    "svc": 1,
+                    "adaboostclassifier": 1
+                },
+                "Model_Evaluation": {
+                    "model": 1
+                },
+                "Model_Interpretation": {
+                    "model": 1,
+                    "gradient": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "matplotlib": 2,
+                    "pyplot": 1,
+                    "graph": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    0,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "        <script type=\"text/javascript\">\n        window.PlotlyConfig = {MathJaxConfig: 'local'};\n        if (window.MathJax) {MathJax.Hub.Config({SVG: {font: \"STIX-Web\"}});}\n        if (typeof require !== 'undefined') {\n        require.undef(\"plotly\");\n        requirejs.config({\n            paths: {\n                'plotly': ['https://cdn.plot.ly/plotly-latest.min']\n            }\n        });\n        require(['plotly'], function(Plotly) {\n            window._Plotly = Plotly;\n        });\n        }\n        </script>\n        "
+                    ]
+                },
+                "mc_idx": 1,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 0,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Load Data",
+            "mc_idx": 2,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "# Load in the train and test datasets\ntrain = pd.read_csv('../input/titanic/train.csv')\ntest = pd.read_csv('../input/titanic/test.csv')\n\n# Store our passenger ID for easy access\nPassengerId = test['PassengerId']\n\ntrain.head(3)",
+            "mc_idx": 3,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Data_Extraction",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 1.0,
+                "Exploratory_Data_Analysis": 0.3333333333333333,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.1111111111111111,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {
+                    "read_csv": 4,
+                    "pd.read_": 4,
+                    "dataset": 1
+                },
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {
+                    "store": 1
+                },
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    1,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   PassengerId  Survived  Pclass  \\\n0            1         0       3   \n1            2         1       1   \n2            3         1       3   \n\n                                                Name     Sex   Age  SibSp  \\\n0                            Braund, Mr. Owen Harris    male  22.0      1   \n1  Cumings, Mrs. John Bradley (Florence Briggs Th...  female  38.0      1   \n2                             Heikkinen, Miss. Laina  female  26.0      0   \n\n   Parch            Ticket     Fare Cabin Embarked  \n0      0         A/5 21171   7.2500   NaN        S  \n1      0          PC 17599  71.2833   C85        C  \n2      0  STON/O2. 3101282   7.9250   NaN        S  "
+                    ]
+                },
+                "mc_idx": 3,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 1,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "train['Ticket_type'] = train['Ticket'].apply(lambda x: x[0:3])\ntrain['Ticket_type'] = train['Ticket_type'].astype('category')\ntrain['Ticket_type'] = train['Ticket_type'].cat.codes\n\ntest['Ticket_type'] = test['Ticket'].apply(lambda x: x[0:3])\ntest['Ticket_type'] = test['Ticket_type'].astype('category')\ntest['Ticket_type'] = test['Ticket_type'].cat.codes\n\ntrain.head(3)",
+            "mc_idx": 4,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Data_Transform",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.5,
+                "Data_Transform": 1.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {
+                    ".apply(": 2,
+                    ".astype(": 2,
+                    ".apply": 2
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    2,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   PassengerId  Survived  Pclass  \\\n0            1         0       3   \n1            2         1       1   \n2            3         1       3   \n\n                                                Name     Sex   Age  SibSp  \\\n0                            Braund, Mr. Owen Harris    male  22.0      1   \n1  Cumings, Mrs. John Bradley (Florence Briggs Th...  female  38.0      1   \n2                             Heikkinen, Miss. Laina  female  26.0      0   \n\n   Parch            Ticket     Fare Cabin Embarked  Ticket_type  \n0      0         A/5 21171   7.2500   NaN        S          124  \n1      0          PC 17599  71.2833   C85        C          137  \n2      0  STON/O2. 3101282   7.9250   NaN        S          148  "
+                    ]
+                },
+                "mc_idx": 4,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 2,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "full_data = [train, test]\n\n# Some extra features, not necessarily important\n# Gives the length of the name\n# train['Name_length'] = train['Name'].apply(len)\n# test['Name_length'] = test['Name'].apply(len)\ntrain['Words_Count'] = train['Name'].apply(lambda x: len(x.split()))\ntest['Words_Count'] = test['Name'].apply(lambda x: len(x.split()))\n\n# Feature that tells whether a passenger had a cabin on the Titanic\ntrain['Has_Cabin'] = train[\"Cabin\"].apply(lambda x: 0 if type(x) == float else 1)\ntest['Has_Cabin'] = test[\"Cabin\"].apply(lambda x: 0 if type(x) == float else 1)\n\n# Feature engineering steps taken from Sina\n# Create new feature FamilySize as a combination of SibSp and Parch\nfor dataset in full_data:\n    dataset['FamilySize'] = dataset['SibSp'] + dataset['Parch'] + 1\n# Create new feature IsAlone from FamilySize\nfor dataset in full_data:\n    dataset['IsAlone'] = 0\n    dataset.loc[dataset['FamilySize'] == 1, 'IsAlone'] = 1\n# Remove all NULLS in the Embarked column\nfor dataset in full_data:\n    dataset['Embarked'] = dataset['Embarked'].fillna('S')\n# Remove all NULLS in the Fare column and create a new feature CategoricalFare\nfor dataset in full_data:\n    dataset['Fare'] = dataset['Fare'].fillna(train['Fare'].median())\ntrain['CategoricalFare'] = pd.qcut(train['Fare'], 4)\n# Create a New feature CategoricalAge\nfor dataset in full_data:\n    age_avg = dataset['Age'].mean()\n    age_std = dataset['Age'].std()\n    age_null_count = dataset['Age'].isnull().sum()\n    age_null_random_list = np.random.randint(age_avg - age_std, age_avg + age_std, size=age_null_count)\n    dataset['Age'][np.isnan(dataset['Age'])] = age_null_random_list\n    dataset['Age'] = dataset['Age'].astype(int)\ntrain['CategoricalAge'] = pd.cut(train['Age'], 5)\n# Define function to extract titles from passenger names\ndef get_title(name):\n    title_search = re.search(' ([A-Za-z]+)\\.', name)\n    # If the title exists, extract and return it.\n    if title_search:\n        return title_search.group(1)\n    return \"\"\n# Create a new feature Title, containing the titles of passenger names\nfor dataset in full_data:\n    dataset['Title'] = dataset['Name'].apply(get_title)\n# Group all non-common titles into one single grouping \"Rare\"\nfor dataset in full_data:\n    dataset['Title'] = dataset['Title'].replace(['Lady', 'Countess','Capt', 'Col','Don', 'Dr', 'Major', 'Rev', 'Sir', 'Jonkheer', 'Dona'], 'Rare')\n\n    dataset['Title'] = dataset['Title'].replace('Mlle', 'Miss')\n    dataset['Title'] = dataset['Title'].replace('Ms', 'Miss')\n    dataset['Title'] = dataset['Title'].replace('Mme', 'Mrs')\n\nfor dataset in full_data:\n    # Mapping Sex\n    dataset['Sex'] = dataset['Sex'].map( {'female': 0, 'male': 1} ).astype(int)\n    \n    # Mapping titles\n    title_mapping = {\"Mr\": 1, \"Miss\": 2, \"Mrs\": 3, \"Master\": 4, \"Rare\": 5}\n    dataset['Title'] = dataset['Title'].map(title_mapping)\n    dataset['Title'] = dataset['Title'].fillna(0)\n    \n    # Mapping Embarked\n    dataset['Embarked'] = dataset['Embarked'].map( {'S': 0, 'C': 1, 'Q': 2} ).astype(int)\n    \n    # Mapping Fare\n    dataset.loc[ dataset['Fare'] <= 7.91, 'Fare'] \t\t\t\t\t\t        = 0\n    dataset.loc[(dataset['Fare'] > 7.91) & (dataset['Fare'] <= 14.454), 'Fare'] = 1\n    dataset.loc[(dataset['Fare'] > 14.454) & (dataset['Fare'] <= 31), 'Fare']   = 2\n    dataset.loc[ dataset['Fare'] > 31, 'Fare'] \t\t\t\t\t\t\t        = 3\n    dataset['Fare'] = dataset['Fare'].astype(int)\n    \n    # Mapping Age\n    dataset.loc[ dataset['Age'] <= 16, 'Age'] \t\t\t\t\t       = 0\n    dataset.loc[(dataset['Age'] > 16) & (dataset['Age'] <= 32), 'Age'] = 1\n    dataset.loc[(dataset['Age'] > 32) & (dataset['Age'] <= 48), 'Age'] = 2\n    dataset.loc[(dataset['Age'] > 48) & (dataset['Age'] <= 64), 'Age'] = 3\n    dataset.loc[ dataset['Age'] > 64, 'Age'] = 4 ;",
+            "mc_idx": 5,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Data_Extraction",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 1.0,
+                "Exploratory_Data_Analysis": 0.2,
+                "Data_Transform": 0.6428571428571429,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {
+                    "extract": 2,
+                    "dataset": 68
+                },
+                "Exploratory_Data_Analysis": {
+                    ".mean(": 1,
+                    ".std(": 1,
+                    ".median": 2,
+                    "size": 5,
+                    ".isna": 1,
+                    ".isnull": 1,
+                    ".sum": 1,
+                    ".mean": 1,
+                    ".std": 1
+                },
+                "Data_Transform": {
+                    ".fillna(": 3,
+                    ".apply(": 7,
+                    ".map(": 3,
+                    ".replace(": 4,
+                    "feature engineering": 1,
+                    ".astype(": 4,
+                    ".cut(": 1,
+                    ".qcut(": 1,
+                    ".split": 2,
+                    ".fillna": 3,
+                    ".replace": 4,
+                    ".apply": 7,
+                    ".map": 3,
+                    ".cut": 1,
+                    ".qcut": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    3,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 5,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 3,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Feature selection\ndrop_elements = ['PassengerId', 'Name', 'Ticket', 'Cabin', 'SibSp']\ntrain = train.drop(drop_elements, axis = 1)\ntrain = train.drop(['CategoricalAge', 'CategoricalFare'], axis = 1)\ntest  = test.drop(drop_elements, axis = 1)",
+            "mc_idx": 6,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Data_Transform",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 1.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {
+                    ".drop": 3
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    4,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 6,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 4,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "train.head(3)",
+            "mc_idx": 7,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    5,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   Survived  Pclass  Sex  Age  Parch  Fare  Embarked  Ticket_type  \\\n0         0       3    1    1      0     0         0          124   \n1         1       1    0    2      0     3         1          137   \n2         1       3    0    1      0     1         0          148   \n\n   Words_Count  Has_Cabin  FamilySize  IsAlone  Title  \n0            4          0           2        0      1  \n1            7          1           2        0      3  \n2            3          0           1        1      2  "
+                    ]
+                },
+                "mc_idx": 7,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 5,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "## Plots",
+            "mc_idx": 8,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "**Pearson Correlation Heatmap**\n\nlet us generate some correlation plots of the features to see how related one feature is to the next. To do so, we will utilise the Seaborn plotting package which allows us to plot heatmaps very conveniently as follows",
+            "mc_idx": 9,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "colormap = plt.cm.RdBu\nplt.figure(figsize=(14,12))\nplt.title('Pearson Correlation of Features', y=1.05, size=15)\nsns.heatmap(train.astype(float).corr(),linewidths=0.1,vmax=1.0, \n            square=True, cmap=colormap, linecolor='white', annot=True)",
+            "mc_idx": 10,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.14285714285714285,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.42857142857142855,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".corr": 2,
+                    "sns.heatmap": 1,
+                    ".heatmap(": 1,
+                    "sns.": 1,
+                    "size": 2
+                },
+                "Data_Transform": {
+                    ".astype(": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "sns.heatmap": 1,
+                    ".heatmap(": 1,
+                    "sns.": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/images/d0037_c006_o001_image_0.png",
+                    6,
+                    1,
+                    0
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "<matplotlib.axes._subplots.AxesSubplot at 0x7f1257576e90>",
+                        "<Figure size 1008x864 with 2 Axes>"
+                    ]
+                },
+                "mc_idx": 10,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 6,
+                "o_idx": 1
+            }
+        },
+        {
+            "source": "**Takeaway from the Plots**\n\nOne thing that that the Pearson Correlation plot can tell us is that there are not too many features strongly correlated with one another. This is good from a point of view of feeding these features into your learning model because this means that there isn't much redundant or superfluous data in our training set and we are happy that each feature carries with it some unique information. Here are two most correlated features are that of Family size and Parch (Parents and Children). I'll still leave both features in for the purposes of this exercise.\n",
+            "mc_idx": 11,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "# Models",
+            "mc_idx": 12,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "### XGBoost\n\nHere we choose the eXtremely famous library for boosted tree learning model, XGBoost. It was built to optimize large-scale boosted tree algorithms. For further information about the algorithm, check out the [official documentation][1].\n\n  [1]: https://xgboost.readthedocs.io/en/latest/\n\nAnyways, we call an XGBClassifier and fit it to the first-level train and target data and use the learned model to predict the test data as follows:",
+            "mc_idx": 13,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "y_train = train['Survived'].ravel()\ntrain = train.drop(['Survived'], axis=1)\nx_train = train.values # Creates an array of the train data\nx_test = test.values ",
+            "mc_idx": 14,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Data_Transform",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 1.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {
+                    "ravel": 1,
+                    ".drop": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    7,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 14,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 7,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "gbm = xgb.XGBClassifier(\n    #learning_rate = 0.02,\n n_estimators= 2000,\n max_depth= 4,\n min_child_weight= 2,\n #gamma=1,\n gamma=0.9,                        \n subsample=0.8,\n colsample_bytree=0.8,\n objective= 'binary:logistic',\n nthread= -1,\n scale_pos_weight=1).fit(x_train, y_train)\nxgb_predictions = gbm.predict(x_test)",
+            "mc_idx": 15,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Model_Train",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 1.0,
+                "Model_Evaluation": 1.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {
+                    ".fit(": 1
+                },
+                "Model_Evaluation": {
+                    ".predict(": 1
+                },
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    8,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 15,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 8,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "StackingSubmission = pd.DataFrame({ 'PassengerId': PassengerId,\n                            'Survived': xgb_predictions })",
+            "mc_idx": 16,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Data_Transform",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 1.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {
+                    "stack": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    9,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 16,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 9,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "Just a quick run down of the XGBoost parameters used in the model:\n\n**max_depth** : How deep you want to grow your tree. Beware if set to too high a number might run the risk of overfitting.\n\n**gamma** : minimum loss reduction required to make a further partition on a leaf node of the tree. The larger, the more conservative the algorithm will be.\n\n**eta** : step size shrinkage used in each boosting step to prevent overfitting",
+            "mc_idx": 17,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "## Ensemble Modelling",
+            "mc_idx": 18,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "Ensemble modeling is a process where multiple diverse models are created to predict an outcome, either by using many different modeling algorithms or using different training data sets. The ensemble model then aggregates the prediction of each base model and results in once final prediction for the unseen data. The motivation for using ensemble models is to reduce the generalization error of the prediction. As long as the base models are diverse and independent, the prediction error of the model decreases when the ensemble approach is used. The approach seeks the wisdom of crowds in making a prediction. Even though the ensemble model has multiple base models within the model, it acts and performs as a single model. Most of the practical data mining solutions utilize ensemble modeling techniques. \n\n![ens](https://www.analyticsvidhya.com/wp-content/uploads/2015/09/bagging.png)",
+            "mc_idx": 19,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "\ndf1 = pd.read_csv('../input/91-genetic-algorithms-explained-using-geap/submission.csv')\ndf2 = pd.read_csv('../input/titanic-eda-fe-3-model-decision-tree-viz/submission_GA.csv')\ndf3 = pd.read_csv('../input/91-genetic-algorithms-explained-using-geap/submission.csv')\nx1=0.4; x2=0.3; df1.head()",
+            "mc_idx": 20,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Data_Extraction",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 1.0,
+                "Exploratory_Data_Analysis": 0.25,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.08333333333333333,
+                "Model_Evaluation": 0.08333333333333333,
+                "Model_Interpretation": 0.08333333333333333,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {
+                    "read_csv": 6,
+                    "pd.read_": 6
+                },
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 1
+                },
+                "Model_Evaluation": {
+                    "model": 1
+                },
+                "Model_Interpretation": {
+                    "model": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    10,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   PassengerId  Survived\n0          892         0\n1          893         1\n2          894         0\n3          895         0\n4          896         1"
+                    ]
+                },
+                "mc_idx": 20,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 10,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "df_ensemble = df1.copy()\nk = 'Survived'\ndf_ensemble[k] =  x1*df1[k] + x2*df2[k] + (1.0-x1-x2)*df3[k]\ndf_ensemble[k] = df_ensemble[k].apply(lambda f: 1 if f>=0.5 else 0)\ndf_ensemble.to_csv('df_ensemble_pre.csv', index=False)\ndf_ensemble.head()",
+            "mc_idx": 21,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.6666666666666666,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.6666666666666666,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {
+                    ".apply(": 1,
+                    ".apply": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {
+                    ".to_csv(": 1,
+                    "to_csv": 1
+                },
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    11,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   PassengerId  Survived\n0          892         0\n1          893         1\n2          894         0\n3          895         0\n4          896         1"
+                    ]
+                },
+                "mc_idx": 21,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 11,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "df_ensemble = df1.copy()\nk = 'Survived'\ndf_ensemble[k] = x1*df1[k] + x2*df2[k] + (1.0-x1-x2)*StackingSubmission[k]\ndf_ensemble[k] = df_ensemble[k].apply(lambda f: 1 if f>=0.5 else 0)\ndf_ensemble.to_csv('df_ensemble.csv', index=False)\ndf_ensemble.head()",
+            "mc_idx": 22,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 1.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.6666666666666666,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {
+                    ".apply(": 1,
+                    "stack": 1,
+                    ".apply": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {
+                    ".to_csv(": 1,
+                    "to_csv": 1
+                },
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    12,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   PassengerId  Survived\n0          892         0\n1          893         1\n2          894         0\n3          895         0\n4          896         1"
+                    ]
+                },
+                "mc_idx": 22,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 12,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Evaluation",
+            "mc_idx": 23,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "### Generating Ground truth",
+            "mc_idx": 24,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "import numpy as np\nimport pandas as pd\n\nimport os\nimport re\nimport warnings\n\nimport io\nimport requests\nurl=\"https://github.com/thisisjasonjafari/my-datascientise-handcode/raw/master/005-datavisualization/titanic.csv\"\ns=requests.get(url).content\nc=pd.read_csv(io.StringIO(s.decode('utf-8')))\n \ntest_data_with_labels = c\ntest_data = pd.read_csv('../input/titanic/test.csv')\n\nwarnings.filterwarnings('ignore')\n\nfor i, name in enumerate(test_data_with_labels['name']):\n    if '\"' in name:\n        test_data_with_labels['name'][i] = re.sub('\"', '', name)\n        \nfor i, name in enumerate(test_data['Name']):\n    if '\"' in name:\n        test_data['Name'][i] = re.sub('\"', '', name)\n        \nsurvived = []\n\nfor name in test_data['Name']:\n    survived.append(int(test_data_with_labels.loc[test_data_with_labels['name'] == name]['survived'].values[-1]))\n\n    \nsubmission = pd.read_csv('../input/titanic/gender_submission.csv')\nsubmission['Survived'] = survived\nsubmission.to_csv('ground_truth.csv', index=False)",
+            "mc_idx": 25,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.18571428571428572,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.02857142857142857,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "import ": 7
+                },
+                "Data_Extraction": {
+                    "read_csv": 6,
+                    "pd.read_": 6,
+                    "requests.get": 1
+                },
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {
+                    ".to_csv(": 1,
+                    "to_csv": 1
+                },
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    13,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 25,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 13,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Submission file\n\nFinally having trained and fit all our first-level and second-level models, we can now output the predictions into the proper format for submission to the Titanic competition as follows:",
+            "mc_idx": 26,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "# Generate Submission File \nStackingSubmission.to_csv(\"XGB.csv\", index=False)\nStackingSubmission.head()",
+            "mc_idx": 27,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.6666666666666666,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.6666666666666666,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {
+                    "stack": 2
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {
+                    ".to_csv(": 1,
+                    "to_csv": 1
+                },
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    14,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   PassengerId  Survived\n0          892         0\n1          893         1\n2          894         0\n3          895         0\n4          896         0"
+                    ]
+                },
+                "mc_idx": 27,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 14,
+                "o_idx": 0
+            }
+        }
+    ],
+    "code_cells": [
+        {
+            "source": "# Load in our libraries\nimport pandas as pd\nimport numpy as np\nimport re\nimport sklearn\nimport xgboost as xgb\nimport seaborn as sns\nimport matplotlib.pyplot as plt\n%matplotlib inline\n\nimport plotly.offline as py\npy.init_notebook_mode(connected=True)\nimport plotly.graph_objs as go\nimport plotly.tools as tls\n\nimport warnings\nwarnings.filterwarnings('ignore')\n\n# Going to use these 5 base models for the stacking\nfrom sklearn.ensemble import (RandomForestClassifier, AdaBoostClassifier, \n                              GradientBoostingClassifier, ExtraTreesClassifier)\nfrom sklearn.svm import SVC",
+            "mc_idx": 1,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.03816793893129771,
+                "Data_Transform": 0.007633587786259542,
+                "Model_Train": 0.04580152671755725,
+                "Model_Evaluation": 0.007633587786259542,
+                "Model_Interpretation": 0.015267175572519083,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.030534351145038167,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "import ": 13
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "plotly": 3,
+                    "matplotlib": 2
+                },
+                "Data_Transform": {
+                    "stack": 1
+                },
+                "Model_Train": {
+                    "model": 1,
+                    "randomforestclassifier": 2,
+                    "gradientboostingclassifier": 1,
+                    "svc": 1,
+                    "adaboostclassifier": 1
+                },
+                "Model_Evaluation": {
+                    "model": 1
+                },
+                "Model_Interpretation": {
+                    "model": 1,
+                    "gradient": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "matplotlib": 2,
+                    "pyplot": 1,
+                    "graph": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    0,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "        <script type=\"text/javascript\">\n        window.PlotlyConfig = {MathJaxConfig: 'local'};\n        if (window.MathJax) {MathJax.Hub.Config({SVG: {font: \"STIX-Web\"}});}\n        if (typeof require !== 'undefined') {\n        require.undef(\"plotly\");\n        requirejs.config({\n            paths: {\n                'plotly': ['https://cdn.plot.ly/plotly-latest.min']\n            }\n        });\n        require(['plotly'], function(Plotly) {\n            window._Plotly = Plotly;\n        });\n        }\n        </script>\n        "
+                    ]
+                },
+                "mc_idx": 1,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 0,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Load in the train and test datasets\ntrain = pd.read_csv('../input/titanic/train.csv')\ntest = pd.read_csv('../input/titanic/test.csv')\n\n# Store our passenger ID for easy access\nPassengerId = test['PassengerId']\n\ntrain.head(3)",
+            "mc_idx": 3,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Data_Extraction",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 1.0,
+                "Exploratory_Data_Analysis": 0.3333333333333333,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.1111111111111111,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {
+                    "read_csv": 4,
+                    "pd.read_": 4,
+                    "dataset": 1
+                },
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {
+                    "store": 1
+                },
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    1,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   PassengerId  Survived  Pclass  \\\n0            1         0       3   \n1            2         1       1   \n2            3         1       3   \n\n                                                Name     Sex   Age  SibSp  \\\n0                            Braund, Mr. Owen Harris    male  22.0      1   \n1  Cumings, Mrs. John Bradley (Florence Briggs Th...  female  38.0      1   \n2                             Heikkinen, Miss. Laina  female  26.0      0   \n\n   Parch            Ticket     Fare Cabin Embarked  \n0      0         A/5 21171   7.2500   NaN        S  \n1      0          PC 17599  71.2833   C85        C  \n2      0  STON/O2. 3101282   7.9250   NaN        S  "
+                    ]
+                },
+                "mc_idx": 3,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 1,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "train['Ticket_type'] = train['Ticket'].apply(lambda x: x[0:3])\ntrain['Ticket_type'] = train['Ticket_type'].astype('category')\ntrain['Ticket_type'] = train['Ticket_type'].cat.codes\n\ntest['Ticket_type'] = test['Ticket'].apply(lambda x: x[0:3])\ntest['Ticket_type'] = test['Ticket_type'].astype('category')\ntest['Ticket_type'] = test['Ticket_type'].cat.codes\n\ntrain.head(3)",
+            "mc_idx": 4,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Data_Transform",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.5,
+                "Data_Transform": 1.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {
+                    ".apply(": 2,
+                    ".astype(": 2,
+                    ".apply": 2
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    2,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   PassengerId  Survived  Pclass  \\\n0            1         0       3   \n1            2         1       1   \n2            3         1       3   \n\n                                                Name     Sex   Age  SibSp  \\\n0                            Braund, Mr. Owen Harris    male  22.0      1   \n1  Cumings, Mrs. John Bradley (Florence Briggs Th...  female  38.0      1   \n2                             Heikkinen, Miss. Laina  female  26.0      0   \n\n   Parch            Ticket     Fare Cabin Embarked  Ticket_type  \n0      0         A/5 21171   7.2500   NaN        S          124  \n1      0          PC 17599  71.2833   C85        C          137  \n2      0  STON/O2. 3101282   7.9250   NaN        S          148  "
+                    ]
+                },
+                "mc_idx": 4,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 2,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "full_data = [train, test]\n\n# Some extra features, not necessarily important\n# Gives the length of the name\n# train['Name_length'] = train['Name'].apply(len)\n# test['Name_length'] = test['Name'].apply(len)\ntrain['Words_Count'] = train['Name'].apply(lambda x: len(x.split()))\ntest['Words_Count'] = test['Name'].apply(lambda x: len(x.split()))\n\n# Feature that tells whether a passenger had a cabin on the Titanic\ntrain['Has_Cabin'] = train[\"Cabin\"].apply(lambda x: 0 if type(x) == float else 1)\ntest['Has_Cabin'] = test[\"Cabin\"].apply(lambda x: 0 if type(x) == float else 1)\n\n# Feature engineering steps taken from Sina\n# Create new feature FamilySize as a combination of SibSp and Parch\nfor dataset in full_data:\n    dataset['FamilySize'] = dataset['SibSp'] + dataset['Parch'] + 1\n# Create new feature IsAlone from FamilySize\nfor dataset in full_data:\n    dataset['IsAlone'] = 0\n    dataset.loc[dataset['FamilySize'] == 1, 'IsAlone'] = 1\n# Remove all NULLS in the Embarked column\nfor dataset in full_data:\n    dataset['Embarked'] = dataset['Embarked'].fillna('S')\n# Remove all NULLS in the Fare column and create a new feature CategoricalFare\nfor dataset in full_data:\n    dataset['Fare'] = dataset['Fare'].fillna(train['Fare'].median())\ntrain['CategoricalFare'] = pd.qcut(train['Fare'], 4)\n# Create a New feature CategoricalAge\nfor dataset in full_data:\n    age_avg = dataset['Age'].mean()\n    age_std = dataset['Age'].std()\n    age_null_count = dataset['Age'].isnull().sum()\n    age_null_random_list = np.random.randint(age_avg - age_std, age_avg + age_std, size=age_null_count)\n    dataset['Age'][np.isnan(dataset['Age'])] = age_null_random_list\n    dataset['Age'] = dataset['Age'].astype(int)\ntrain['CategoricalAge'] = pd.cut(train['Age'], 5)\n# Define function to extract titles from passenger names\ndef get_title(name):\n    title_search = re.search(' ([A-Za-z]+)\\.', name)\n    # If the title exists, extract and return it.\n    if title_search:\n        return title_search.group(1)\n    return \"\"\n# Create a new feature Title, containing the titles of passenger names\nfor dataset in full_data:\n    dataset['Title'] = dataset['Name'].apply(get_title)\n# Group all non-common titles into one single grouping \"Rare\"\nfor dataset in full_data:\n    dataset['Title'] = dataset['Title'].replace(['Lady', 'Countess','Capt', 'Col','Don', 'Dr', 'Major', 'Rev', 'Sir', 'Jonkheer', 'Dona'], 'Rare')\n\n    dataset['Title'] = dataset['Title'].replace('Mlle', 'Miss')\n    dataset['Title'] = dataset['Title'].replace('Ms', 'Miss')\n    dataset['Title'] = dataset['Title'].replace('Mme', 'Mrs')\n\nfor dataset in full_data:\n    # Mapping Sex\n    dataset['Sex'] = dataset['Sex'].map( {'female': 0, 'male': 1} ).astype(int)\n    \n    # Mapping titles\n    title_mapping = {\"Mr\": 1, \"Miss\": 2, \"Mrs\": 3, \"Master\": 4, \"Rare\": 5}\n    dataset['Title'] = dataset['Title'].map(title_mapping)\n    dataset['Title'] = dataset['Title'].fillna(0)\n    \n    # Mapping Embarked\n    dataset['Embarked'] = dataset['Embarked'].map( {'S': 0, 'C': 1, 'Q': 2} ).astype(int)\n    \n    # Mapping Fare\n    dataset.loc[ dataset['Fare'] <= 7.91, 'Fare'] \t\t\t\t\t\t        = 0\n    dataset.loc[(dataset['Fare'] > 7.91) & (dataset['Fare'] <= 14.454), 'Fare'] = 1\n    dataset.loc[(dataset['Fare'] > 14.454) & (dataset['Fare'] <= 31), 'Fare']   = 2\n    dataset.loc[ dataset['Fare'] > 31, 'Fare'] \t\t\t\t\t\t\t        = 3\n    dataset['Fare'] = dataset['Fare'].astype(int)\n    \n    # Mapping Age\n    dataset.loc[ dataset['Age'] <= 16, 'Age'] \t\t\t\t\t       = 0\n    dataset.loc[(dataset['Age'] > 16) & (dataset['Age'] <= 32), 'Age'] = 1\n    dataset.loc[(dataset['Age'] > 32) & (dataset['Age'] <= 48), 'Age'] = 2\n    dataset.loc[(dataset['Age'] > 48) & (dataset['Age'] <= 64), 'Age'] = 3\n    dataset.loc[ dataset['Age'] > 64, 'Age'] = 4 ;",
+            "mc_idx": 5,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Data_Extraction",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 1.0,
+                "Exploratory_Data_Analysis": 0.2,
+                "Data_Transform": 0.6428571428571429,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {
+                    "extract": 2,
+                    "dataset": 68
+                },
+                "Exploratory_Data_Analysis": {
+                    ".mean(": 1,
+                    ".std(": 1,
+                    ".median": 2,
+                    "size": 5,
+                    ".isna": 1,
+                    ".isnull": 1,
+                    ".sum": 1,
+                    ".mean": 1,
+                    ".std": 1
+                },
+                "Data_Transform": {
+                    ".fillna(": 3,
+                    ".apply(": 7,
+                    ".map(": 3,
+                    ".replace(": 4,
+                    "feature engineering": 1,
+                    ".astype(": 4,
+                    ".cut(": 1,
+                    ".qcut(": 1,
+                    ".split": 2,
+                    ".fillna": 3,
+                    ".replace": 4,
+                    ".apply": 7,
+                    ".map": 3,
+                    ".cut": 1,
+                    ".qcut": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    3,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 5,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 3,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Feature selection\ndrop_elements = ['PassengerId', 'Name', 'Ticket', 'Cabin', 'SibSp']\ntrain = train.drop(drop_elements, axis = 1)\ntrain = train.drop(['CategoricalAge', 'CategoricalFare'], axis = 1)\ntest  = test.drop(drop_elements, axis = 1)",
+            "mc_idx": 6,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Data_Transform",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 1.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {
+                    ".drop": 3
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    4,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 6,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 4,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "train.head(3)",
+            "mc_idx": 7,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    5,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   Survived  Pclass  Sex  Age  Parch  Fare  Embarked  Ticket_type  \\\n0         0       3    1    1      0     0         0          124   \n1         1       1    0    2      0     3         1          137   \n2         1       3    0    1      0     1         0          148   \n\n   Words_Count  Has_Cabin  FamilySize  IsAlone  Title  \n0            4          0           2        0      1  \n1            7          1           2        0      3  \n2            3          0           1        1      2  "
+                    ]
+                },
+                "mc_idx": 7,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 5,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "colormap = plt.cm.RdBu\nplt.figure(figsize=(14,12))\nplt.title('Pearson Correlation of Features', y=1.05, size=15)\nsns.heatmap(train.astype(float).corr(),linewidths=0.1,vmax=1.0, \n            square=True, cmap=colormap, linecolor='white', annot=True)",
+            "mc_idx": 10,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.14285714285714285,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.42857142857142855,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".corr": 2,
+                    "sns.heatmap": 1,
+                    ".heatmap(": 1,
+                    "sns.": 1,
+                    "size": 2
+                },
+                "Data_Transform": {
+                    ".astype(": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "sns.heatmap": 1,
+                    ".heatmap(": 1,
+                    "sns.": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/images/d0037_c006_o001_image_0.png",
+                    6,
+                    1,
+                    0
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "<matplotlib.axes._subplots.AxesSubplot at 0x7f1257576e90>",
+                        "<Figure size 1008x864 with 2 Axes>"
+                    ]
+                },
+                "mc_idx": 10,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 6,
+                "o_idx": 1
+            }
+        },
+        {
+            "source": "y_train = train['Survived'].ravel()\ntrain = train.drop(['Survived'], axis=1)\nx_train = train.values # Creates an array of the train data\nx_test = test.values ",
+            "mc_idx": 14,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Data_Transform",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 1.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {
+                    "ravel": 1,
+                    ".drop": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    7,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 14,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 7,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "gbm = xgb.XGBClassifier(\n    #learning_rate = 0.02,\n n_estimators= 2000,\n max_depth= 4,\n min_child_weight= 2,\n #gamma=1,\n gamma=0.9,                        \n subsample=0.8,\n colsample_bytree=0.8,\n objective= 'binary:logistic',\n nthread= -1,\n scale_pos_weight=1).fit(x_train, y_train)\nxgb_predictions = gbm.predict(x_test)",
+            "mc_idx": 15,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Model_Train",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 1.0,
+                "Model_Evaluation": 1.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {
+                    ".fit(": 1
+                },
+                "Model_Evaluation": {
+                    ".predict(": 1
+                },
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    8,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 15,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 8,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "StackingSubmission = pd.DataFrame({ 'PassengerId': PassengerId,\n                            'Survived': xgb_predictions })",
+            "mc_idx": 16,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Data_Transform",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 1.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {
+                    "stack": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    9,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 16,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 9,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "\ndf1 = pd.read_csv('../input/91-genetic-algorithms-explained-using-geap/submission.csv')\ndf2 = pd.read_csv('../input/titanic-eda-fe-3-model-decision-tree-viz/submission_GA.csv')\ndf3 = pd.read_csv('../input/91-genetic-algorithms-explained-using-geap/submission.csv')\nx1=0.4; x2=0.3; df1.head()",
+            "mc_idx": 20,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Data_Extraction",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 1.0,
+                "Exploratory_Data_Analysis": 0.25,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.08333333333333333,
+                "Model_Evaluation": 0.08333333333333333,
+                "Model_Interpretation": 0.08333333333333333,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {
+                    "read_csv": 6,
+                    "pd.read_": 6
+                },
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 1
+                },
+                "Model_Evaluation": {
+                    "model": 1
+                },
+                "Model_Interpretation": {
+                    "model": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    10,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   PassengerId  Survived\n0          892         0\n1          893         1\n2          894         0\n3          895         0\n4          896         1"
+                    ]
+                },
+                "mc_idx": 20,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 10,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "df_ensemble = df1.copy()\nk = 'Survived'\ndf_ensemble[k] =  x1*df1[k] + x2*df2[k] + (1.0-x1-x2)*df3[k]\ndf_ensemble[k] = df_ensemble[k].apply(lambda f: 1 if f>=0.5 else 0)\ndf_ensemble.to_csv('df_ensemble_pre.csv', index=False)\ndf_ensemble.head()",
+            "mc_idx": 21,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.6666666666666666,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.6666666666666666,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {
+                    ".apply(": 1,
+                    ".apply": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {
+                    ".to_csv(": 1,
+                    "to_csv": 1
+                },
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    11,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   PassengerId  Survived\n0          892         0\n1          893         1\n2          894         0\n3          895         0\n4          896         1"
+                    ]
+                },
+                "mc_idx": 21,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 11,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "df_ensemble = df1.copy()\nk = 'Survived'\ndf_ensemble[k] = x1*df1[k] + x2*df2[k] + (1.0-x1-x2)*StackingSubmission[k]\ndf_ensemble[k] = df_ensemble[k].apply(lambda f: 1 if f>=0.5 else 0)\ndf_ensemble.to_csv('df_ensemble.csv', index=False)\ndf_ensemble.head()",
+            "mc_idx": 22,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 1.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.6666666666666666,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {
+                    ".apply(": 1,
+                    "stack": 1,
+                    ".apply": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {
+                    ".to_csv(": 1,
+                    "to_csv": 1
+                },
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    12,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   PassengerId  Survived\n0          892         0\n1          893         1\n2          894         0\n3          895         0\n4          896         1"
+                    ]
+                },
+                "mc_idx": 22,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 12,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "import numpy as np\nimport pandas as pd\n\nimport os\nimport re\nimport warnings\n\nimport io\nimport requests\nurl=\"https://github.com/thisisjasonjafari/my-datascientise-handcode/raw/master/005-datavisualization/titanic.csv\"\ns=requests.get(url).content\nc=pd.read_csv(io.StringIO(s.decode('utf-8')))\n \ntest_data_with_labels = c\ntest_data = pd.read_csv('../input/titanic/test.csv')\n\nwarnings.filterwarnings('ignore')\n\nfor i, name in enumerate(test_data_with_labels['name']):\n    if '\"' in name:\n        test_data_with_labels['name'][i] = re.sub('\"', '', name)\n        \nfor i, name in enumerate(test_data['Name']):\n    if '\"' in name:\n        test_data['Name'][i] = re.sub('\"', '', name)\n        \nsurvived = []\n\nfor name in test_data['Name']:\n    survived.append(int(test_data_with_labels.loc[test_data_with_labels['name'] == name]['survived'].values[-1]))\n\n    \nsubmission = pd.read_csv('../input/titanic/gender_submission.csv')\nsubmission['Survived'] = survived\nsubmission.to_csv('ground_truth.csv', index=False)",
+            "mc_idx": 25,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.18571428571428572,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.02857142857142857,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "import ": 7
+                },
+                "Data_Extraction": {
+                    "read_csv": 6,
+                    "pd.read_": 6,
+                    "requests.get": 1
+                },
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {
+                    ".to_csv(": 1,
+                    "to_csv": 1
+                },
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    13,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 25,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 13,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Generate Submission File \nStackingSubmission.to_csv(\"XGB.csv\", index=False)\nStackingSubmission.head()",
+            "mc_idx": 27,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.6666666666666666,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.6666666666666666,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {
+                    "stack": 2
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {
+                    ".to_csv(": 1,
+                    "to_csv": 1
+                },
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    14,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "   PassengerId  Survived\n0          892         0\n1          893         1\n2          894         0\n3          895         0\n4          896         0"
+                    ]
+                },
+                "mc_idx": 27,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 14,
+                "o_idx": 0
+            }
+        }
+    ],
+    "markdown_cells": [
+        {
+            "source": "# Introduction\n\n**I have carefully analyzed a lot of notebooks** and I have been working on this competition for some time. My goal in this notebook, is to bring you the best pieces of all required parts of this challenge.\n\nWe will start by loading data, EDA, Modelling and finally, evaluation and submission file.\n\n**Please upvote the notebook if it helps you.**\n\nEnjoy and be safe!",
+            "mc_idx": 0,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "# Load Data",
+            "mc_idx": 2,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "## Plots",
+            "mc_idx": 8,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "**Pearson Correlation Heatmap**\n\nlet us generate some correlation plots of the features to see how related one feature is to the next. To do so, we will utilise the Seaborn plotting package which allows us to plot heatmaps very conveniently as follows",
+            "mc_idx": 9,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "**Takeaway from the Plots**\n\nOne thing that that the Pearson Correlation plot can tell us is that there are not too many features strongly correlated with one another. This is good from a point of view of feeding these features into your learning model because this means that there isn't much redundant or superfluous data in our training set and we are happy that each feature carries with it some unique information. Here are two most correlated features are that of Family size and Parch (Parents and Children). I'll still leave both features in for the purposes of this exercise.\n",
+            "mc_idx": 11,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "# Models",
+            "mc_idx": 12,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "### XGBoost\n\nHere we choose the eXtremely famous library for boosted tree learning model, XGBoost. It was built to optimize large-scale boosted tree algorithms. For further information about the algorithm, check out the [official documentation][1].\n\n  [1]: https://xgboost.readthedocs.io/en/latest/\n\nAnyways, we call an XGBClassifier and fit it to the first-level train and target data and use the learned model to predict the test data as follows:",
+            "mc_idx": 13,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "Just a quick run down of the XGBoost parameters used in the model:\n\n**max_depth** : How deep you want to grow your tree. Beware if set to too high a number might run the risk of overfitting.\n\n**gamma** : minimum loss reduction required to make a further partition on a leaf node of the tree. The larger, the more conservative the algorithm will be.\n\n**eta** : step size shrinkage used in each boosting step to prevent overfitting",
+            "mc_idx": 17,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "## Ensemble Modelling",
+            "mc_idx": 18,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "Ensemble modeling is a process where multiple diverse models are created to predict an outcome, either by using many different modeling algorithms or using different training data sets. The ensemble model then aggregates the prediction of each base model and results in once final prediction for the unseen data. The motivation for using ensemble models is to reduce the generalization error of the prediction. As long as the base models are diverse and independent, the prediction error of the model decreases when the ensemble approach is used. The approach seeks the wisdom of crowds in making a prediction. Even though the ensemble model has multiple base models within the model, it acts and performs as a single model. Most of the practical data mining solutions utilize ensemble modeling techniques. \n\n![ens](https://www.analyticsvidhya.com/wp-content/uploads/2015/09/bagging.png)",
+            "mc_idx": 19,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "# Evaluation",
+            "mc_idx": 23,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "### Generating Ground truth",
+            "mc_idx": 24,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "# Submission file\n\nFinally having trained and fit all our first-level and second-level models, we can now output the predictions into the proper format for submission to the Titanic competition as follows:",
+            "mc_idx": 26,
+            "nb_idx": 37,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        }
+    ],
+    "sim_matrix": [],
+    "cell_sim_matrix": [],
+    "nb_order": [],
+    "summary_data_VA": null
+}

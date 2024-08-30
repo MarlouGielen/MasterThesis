@@ -1,0 +1,3472 @@
+{
+    "nb_idx": 83,
+    "nb_name": "d0083",
+    "filename": "titanic-solution-using-random-forest-tool-r.ipynb",
+    "filepath": "data/data_Kaggle/raw/titanic-solution-using-random-forest-tool-r.ipynb",
+    "source": "# Load packages\nlibrary('ggplot2') # visualization\nlibrary('ggthemes') # visualization\nlibrary('scales') # visualization\nlibrary('dplyr') # data manipulation\nlibrary('mice') # imputation\nlibrary('randomForest') # classification algorithm \n train <- read.csv('../input/titanic/train.csv', stringsAsFactors = F)\ntest  <- read.csv('../input/titanic/test.csv', stringsAsFactors = F)\n\nfull  <- bind_rows(train, test) # bind training & test data\n\n# check data\nstr(full) \n # Grab title from passenger names\nfull$Title <- gsub('(.*, )|(\\\\..*)', '', full$Name)\n\n# Show title counts by sex\ntable(full$Sex, full$Title) \n # Titles with very low cell counts to be combined to \"rare\" level\nrare_title <- c('Dona', 'Lady', 'the Countess','Capt', 'Col', 'Don', \n                'Dr', 'Major', 'Rev', 'Sir', 'Jonkheer')\n\n# Also reassign mlle, ms, and mme accordingly\nfull$Title[full$Title == 'Mlle']        <- 'Miss' \nfull$Title[full$Title == 'Ms']          <- 'Miss'\nfull$Title[full$Title == 'Mme']         <- 'Mrs' \nfull$Title[full$Title %in% rare_title]  <- 'Rare Title'\n\n# Show title counts by sex again\ntable(full$Sex, full$Title) \n # Create a family size variable including the passenger themselves\nfull$Fsize <- full$SibSp + full$Parch + 1\n\n# Create a family variable \nfull$Family <- paste(full$Surname, full$Fsize, sep='_') \n # Use ggplot2 to visualize the relationship between family size & survival\nggplot(full[1:891,], aes(x = Fsize, fill = factor(Survived))) +\n  geom_bar(stat='count', position='dodge') +\n  scale_x_continuous(breaks=c(1:11)) +\n  labs(x = 'Family Size') +\n  theme_few() \n # Discretize family size\nfull$FsizeD[full$Fsize == 1] <- 'singleton'\nfull$FsizeD[full$Fsize < 5 & full$Fsize > 1] <- 'small'\nfull$FsizeD[full$Fsize > 4] <- 'large' \n # This variable appears to have a lot of missing values\nfull$Cabin[1:28] \n # The first character is the deck. For example:\nstrsplit(full$Cabin[2], NULL)[[1]] \n # Create a Deck variable. Get passenger deck A - F:\nfull$Deck<-factor(sapply(full$Cabin, function(x) strsplit(x, NULL)[[1]][1])) \n # Passengers 62 and 830 are missing Embarkment\nfull[c(62, 830), 'Embarked'] \n # Since their fare was $80 for 1st class, they most likely embarked from 'C'\nfull$Embarked[c(62, 830)] <- 'C' \n ggplot(full[full$Pclass == '3' & full$Embarked == 'S', ], \n  aes(x = Fare)) +\n  geom_density(fill = '#99d6ff', alpha=0.4) + \n  geom_vline(aes(xintercept=median(Fare, na.rm=T)),\n    colour='red', linetype='dashed', lwd=1) +\n  scale_x_continuous(labels=dollar_format()) +\n  theme_few() \n # Replace missing fare value with median fare for class/embarkment\nfull$Fare[1044] <- median(full[full$Pclass == '3' & full$Embarked == 'S', ]$Fare, na.rm = TRUE) \n # Make variables factors into factors\nfactor_vars <- c('PassengerId','Pclass','Sex','Embarked',\n                 'Title','Family','FsizeD')\n\nfull[factor_vars] <- lapply(full[factor_vars], function(x) as.factor(x))\n\n# Set a random seed\nset.seed(129)\n\n# Perform mice imputation, excluding certain less-than-useful variables:\nmice_mod <- mice(full[, !names(full) %in% c('PassengerId','Name','Ticket','Cabin','Family','Survived')], method='rf')  \n # Save the complete output \nmice_output <- complete(mice_mod) \n # Plot age distributions\npar(mfrow=c(1,2))\nhist(full$Age, freq=F, main='Age: Original Data', \n  col='darkgreen', ylim=c(0,0.04))\nhist(mice_output$Age, freq=F, main='Age: MICE Output', \n  col='lightgreen', ylim=c(0,0.04)) \n # Replace Age variable from the mice model.\nfull$Age <- mice_output$Age\n\n# Show new number of missing Age values\nsum(is.na(full$Age)) \n ## Build Model \n # Split the data back into a train set and a test set\ntrain <- full[1:891,]\ntest <- full[892:1309,] \n # Set a random seed\nset.seed(754)\n\n# Build the model (note: not all possible variables are used)\nrf_model <- randomForest(factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + \n                                            Fare + Embarked + Title + \n                                            FsizeD,\n                                            data = train)\n\n# Show model error\nplot(rf_model, ylim=c(0,0.36))\nlegend('topright', colnames(rf_model$err.rate), col=1:3, fill=1:3) \n # Get importance\nimportance    <- importance(rf_model)\nvarImportance <- data.frame(Variables = row.names(importance), \n                            Importance = round(importance[ ,'MeanDecreaseGini'],2))\n\n# Create a rank variable based on importance\nrankImportance <- varImportance %>%\n  mutate(Rank = paste0('#',dense_rank(desc(Importance))))\n\n# Use ggplot2 to visualize the relative importance of variables\nggplot(rankImportance, aes(x = reorder(Variables, Importance), \n    y = Importance, fill = Importance)) +\n  geom_bar(stat='identity') + \n  geom_text(aes(x = Variables, y = 0.5, label = Rank),\n    hjust=0, vjust=0.55, size = 4, colour = 'red') +\n  labs(x = 'Variables') +\n  coord_flip() + \n  theme_few() \n ## Predict \n # Predict using the test set\nprediction <- predict(rf_model, test)\n\n# Save the solution to a dataframe with two columns: PassengerId and Survived (prediction)\nsolution <- data.frame(PassengerID = test$PassengerId, Survived = prediction)\n\n# Write the solution to file\nwrite.csv(solution, file = 'submission.csv', row.names = F)",
+    "code_source": "# Load packages\nlibrary('ggplot2') # visualization\nlibrary('ggthemes') # visualization\nlibrary('scales') # visualization\nlibrary('dplyr') # data manipulation\nlibrary('mice') # imputation\nlibrary('randomForest') # classification algorithm \n train <- read.csv('../input/titanic/train.csv', stringsAsFactors = F)\ntest  <- read.csv('../input/titanic/test.csv', stringsAsFactors = F)\n\nfull  <- bind_rows(train, test) # bind training & test data\n\n# check data\nstr(full) \n # Grab title from passenger names\nfull$Title <- gsub('(.*, )|(\\\\..*)', '', full$Name)\n\n# Show title counts by sex\ntable(full$Sex, full$Title) \n # Titles with very low cell counts to be combined to \"rare\" level\nrare_title <- c('Dona', 'Lady', 'the Countess','Capt', 'Col', 'Don', \n                'Dr', 'Major', 'Rev', 'Sir', 'Jonkheer')\n\n# Also reassign mlle, ms, and mme accordingly\nfull$Title[full$Title == 'Mlle']        <- 'Miss' \nfull$Title[full$Title == 'Ms']          <- 'Miss'\nfull$Title[full$Title == 'Mme']         <- 'Mrs' \nfull$Title[full$Title %in% rare_title]  <- 'Rare Title'\n\n# Show title counts by sex again\ntable(full$Sex, full$Title) \n # Create a family size variable including the passenger themselves\nfull$Fsize <- full$SibSp + full$Parch + 1\n\n# Create a family variable \nfull$Family <- paste(full$Surname, full$Fsize, sep='_') \n # Use ggplot2 to visualize the relationship between family size & survival\nggplot(full[1:891,], aes(x = Fsize, fill = factor(Survived))) +\n  geom_bar(stat='count', position='dodge') +\n  scale_x_continuous(breaks=c(1:11)) +\n  labs(x = 'Family Size') +\n  theme_few() \n # Discretize family size\nfull$FsizeD[full$Fsize == 1] <- 'singleton'\nfull$FsizeD[full$Fsize < 5 & full$Fsize > 1] <- 'small'\nfull$FsizeD[full$Fsize > 4] <- 'large' \n # This variable appears to have a lot of missing values\nfull$Cabin[1:28] \n # The first character is the deck. For example:\nstrsplit(full$Cabin[2], NULL)[[1]] \n # Create a Deck variable. Get passenger deck A - F:\nfull$Deck<-factor(sapply(full$Cabin, function(x) strsplit(x, NULL)[[1]][1])) \n # Passengers 62 and 830 are missing Embarkment\nfull[c(62, 830), 'Embarked'] \n # Since their fare was $80 for 1st class, they most likely embarked from 'C'\nfull$Embarked[c(62, 830)] <- 'C' \n ggplot(full[full$Pclass == '3' & full$Embarked == 'S', ], \n  aes(x = Fare)) +\n  geom_density(fill = '#99d6ff', alpha=0.4) + \n  geom_vline(aes(xintercept=median(Fare, na.rm=T)),\n    colour='red', linetype='dashed', lwd=1) +\n  scale_x_continuous(labels=dollar_format()) +\n  theme_few() \n # Replace missing fare value with median fare for class/embarkment\nfull$Fare[1044] <- median(full[full$Pclass == '3' & full$Embarked == 'S', ]$Fare, na.rm = TRUE) \n # Make variables factors into factors\nfactor_vars <- c('PassengerId','Pclass','Sex','Embarked',\n                 'Title','Family','FsizeD')\n\nfull[factor_vars] <- lapply(full[factor_vars], function(x) as.factor(x))\n\n# Set a random seed\nset.seed(129)\n\n# Perform mice imputation, excluding certain less-than-useful variables:\nmice_mod <- mice(full[, !names(full) %in% c('PassengerId','Name','Ticket','Cabin','Family','Survived')], method='rf')  \n # Save the complete output \nmice_output <- complete(mice_mod) \n # Plot age distributions\npar(mfrow=c(1,2))\nhist(full$Age, freq=F, main='Age: Original Data', \n  col='darkgreen', ylim=c(0,0.04))\nhist(mice_output$Age, freq=F, main='Age: MICE Output', \n  col='lightgreen', ylim=c(0,0.04)) \n # Replace Age variable from the mice model.\nfull$Age <- mice_output$Age\n\n# Show new number of missing Age values\nsum(is.na(full$Age)) \n # Split the data back into a train set and a test set\ntrain <- full[1:891,]\ntest <- full[892:1309,] \n # Set a random seed\nset.seed(754)\n\n# Build the model (note: not all possible variables are used)\nrf_model <- randomForest(factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + \n                                            Fare + Embarked + Title + \n                                            FsizeD,\n                                            data = train)\n\n# Show model error\nplot(rf_model, ylim=c(0,0.36))\nlegend('topright', colnames(rf_model$err.rate), col=1:3, fill=1:3) \n # Get importance\nimportance    <- importance(rf_model)\nvarImportance <- data.frame(Variables = row.names(importance), \n                            Importance = round(importance[ ,'MeanDecreaseGini'],2))\n\n# Create a rank variable based on importance\nrankImportance <- varImportance %>%\n  mutate(Rank = paste0('#',dense_rank(desc(Importance))))\n\n# Use ggplot2 to visualize the relative importance of variables\nggplot(rankImportance, aes(x = reorder(Variables, Importance), \n    y = Importance, fill = Importance)) +\n  geom_bar(stat='identity') + \n  geom_text(aes(x = Variables, y = 0.5, label = Rank),\n    hjust=0, vjust=0.55, size = 4, colour = 'red') +\n  labs(x = 'Variables') +\n  coord_flip() + \n  theme_few() \n # Predict using the test set\nprediction <- predict(rf_model, test)\n\n# Save the solution to a dataframe with two columns: PassengerId and Survived (prediction)\nsolution <- data.frame(PassengerID = test$PassengerId, Survived = prediction)\n\n# Write the solution to file\nwrite.csv(solution, file = 'submission.csv', row.names = F)",
+    "markdown_source": "## Build Model \n ## Predict",
+    "n_cells": 24,
+    "n_code_cells": 22,
+    "n_markdown_cells": 2,
+    "n_raw_cells": 0,
+    "n_outputs": 22,
+    "r_code_cells": 0.9166666666666666,
+    "r_markdown_cells": 0.08333333333333333,
+    "r_raw_cells": 0.0,
+    "r_outputs": 1.0,
+    "n_exceptions": 0,
+    "r_exceptions": 0.0,
+    "n_lines": 132,
+    "n_lines_code": 130,
+    "n_lines_markdown": 2,
+    "lines_per_cell": [
+        7,
+        7,
+        5,
+        12,
+        5,
+        6,
+        4,
+        2,
+        2,
+        2,
+        2,
+        2,
+        7,
+        2,
+        11,
+        2,
+        6,
+        5,
+        1,
+        3,
+        12,
+        18,
+        1,
+        8
+    ],
+    "lines_per_code_cell": [
+        7,
+        7,
+        5,
+        12,
+        5,
+        6,
+        4,
+        2,
+        2,
+        2,
+        2,
+        2,
+        7,
+        2,
+        11,
+        2,
+        6,
+        5,
+        3,
+        12,
+        18,
+        8
+    ],
+    "lines_per_markdown_cell": [
+        1,
+        1
+    ],
+    "ave_lines_per_cell": 5.5,
+    "ave_lines_per_code_cell": 5.909090909090909,
+    "ave_lines_per_markdown_cell": 1.0,
+    "max_lines_per_cell": 18,
+    "max_lines_per_code_cell": 18,
+    "max_lines_per_markdown_cell": 1,
+    "min_lines_per_cell": 1,
+    "min_lines_per_code_cell": 2,
+    "min_lines_per_markdown_cell": 1,
+    "n_chars": 5131,
+    "n_chars_code": 5107,
+    "n_chars_markdown": 24,
+    "chars_per_cell": [
+        237,
+        223,
+        141,
+        508,
+        193,
+        264,
+        163,
+        72,
+        82,
+        128,
+        75,
+        109,
+        283,
+        162,
+        441,
+        61,
+        220,
+        133,
+        14,
+        99,
+        477,
+        710,
+        10,
+        326
+    ],
+    "chars_per_code_cell": [
+        237,
+        223,
+        141,
+        508,
+        193,
+        264,
+        163,
+        72,
+        82,
+        128,
+        75,
+        109,
+        283,
+        162,
+        441,
+        61,
+        220,
+        133,
+        99,
+        477,
+        710,
+        326
+    ],
+    "chars_per_markdown_cell": [
+        14,
+        10
+    ],
+    "ave_chars_per_line": 38.871212121212125,
+    "ave_chars_per_cell": 213.79166666666666,
+    "ave_chars_per_code_cell": 232.13636363636363,
+    "ave_chars_per_markdown_cell": 12.0,
+    "max_chars_per_cell": 710,
+    "max_chars_per_code_cell": 710,
+    "max_chars_per_markdownell": 14,
+    "min_chars_per_cell": 10,
+    "min_chars_per_code_cell": 61,
+    "min_chars_per_markdown_cell": 10,
+    "r_lines_code": 0.9848484848484849,
+    "r_lines_markdown": 0.015151515151515152,
+    "r_chars_markdown": 0.004677450789319821,
+    "r_chars_code": 0.9953225492106802,
+    "all_cells": [
+        {
+            "source": "# Load packages\nlibrary('ggplot2') # visualization\nlibrary('ggthemes') # visualization\nlibrary('scales') # visualization\nlibrary('dplyr') # data manipulation\nlibrary('mice') # imputation\nlibrary('randomForest') # classification algorithm",
+            "mc_idx": 0,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Data_Transform",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 1.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 1.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {
+                    "data manipulation": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "ggplot": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    0,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "\nAttaching package: \u2018dplyr\u2019\n\n\nThe following objects are masked from \u2018package:stats\u2019:\n\n    filter, lag\n\n\nThe following objects are masked from \u2018package:base\u2019:\n\n    intersect, setdiff, setequal, union\n\n\n\nAttaching package: \u2018mice\u2019\n\n\nThe following object is masked from \u2018package:stats\u2019:\n\n    filter\n\n\nThe following objects are masked from \u2018package:base\u2019:\n\n    cbind, rbind\n\n\nrandomForest 4.6-14\n\nType rfNews() to see new features/changes/bug fixes.\n\n\nAttaching package: \u2018randomForest\u2019\n\n\nThe following object is masked from \u2018package:dplyr\u2019:\n\n    combine\n\n\nThe following object is masked from \u2018package:ggplot2\u2019:\n\n    margin\n\n\n"
+                    ]
+                },
+                "mc_idx": 0,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 0,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "train <- read.csv('../input/titanic/train.csv', stringsAsFactors = F)\ntest  <- read.csv('../input/titanic/test.csv', stringsAsFactors = F)\n\nfull  <- bind_rows(train, test) # bind training & test data\n\n# check data\nstr(full)",
+            "mc_idx": 1,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    1,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "'data.frame':\t1309 obs. of  12 variables:\n $ PassengerId: int  1 2 3 4 5 6 7 8 9 10 ...\n $ Survived   : int  0 1 1 1 0 0 0 0 1 1 ...\n $ Pclass     : int  3 1 3 1 3 3 1 3 3 2 ...\n $ Name       : chr  \"Braund, Mr. Owen Harris\" \"Cumings, Mrs. John Bradley (Florence Briggs Thayer)\" \"Heikkinen, Miss. Laina\" \"Futrelle, Mrs. Jacques Heath (Lily May Peel)\" ...\n $ Sex        : chr  \"male\" \"female\" \"female\" \"female\" ...\n $ Age        : num  22 38 26 35 35 NA 54 2 27 14 ...\n $ SibSp      : int  1 1 0 1 0 0 0 3 0 1 ...\n $ Parch      : int  0 0 0 0 0 0 0 1 2 0 ...\n $ Ticket     : chr  \"A/5 21171\" \"PC 17599\" \"STON/O2. 3101282\" \"113803\" ...\n $ Fare       : num  7.25 71.28 7.92 53.1 8.05 ...\n $ Cabin      : chr  \"\" \"C85\" \"\" \"C123\" ...\n $ Embarked   : chr  \"S\" \"C\" \"S\" \"S\" ...\n"
+                    ]
+                },
+                "mc_idx": 1,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 1,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Grab title from passenger names\nfull$Title <- gsub('(.*, )|(\\\\..*)', '', full$Name)\n\n# Show title counts by sex\ntable(full$Sex, full$Title)",
+            "mc_idx": 2,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    2,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "        \n         Capt Col Don Dona  Dr Jonkheer Lady Major Master Miss Mlle Mme  Mr Mrs\n  female    0   0   0    1   1        0    1     0      0  260    2   1   0 197\n  male      1   4   1    0   7        1    0     2     61    0    0   0 757   0\n        \n          Ms Rev Sir the Countess\n  female   2   0   0            1\n  male     0   8   1            0"
+                    ]
+                },
+                "mc_idx": 2,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 2,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Titles with very low cell counts to be combined to \"rare\" level\nrare_title <- c('Dona', 'Lady', 'the Countess','Capt', 'Col', 'Don', \n                'Dr', 'Major', 'Rev', 'Sir', 'Jonkheer')\n\n# Also reassign mlle, ms, and mme accordingly\nfull$Title[full$Title == 'Mlle']        <- 'Miss' \nfull$Title[full$Title == 'Ms']          <- 'Miss'\nfull$Title[full$Title == 'Mme']         <- 'Mrs' \nfull$Title[full$Title %in% rare_title]  <- 'Rare Title'\n\n# Show title counts by sex again\ntable(full$Sex, full$Title)",
+            "mc_idx": 3,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    3,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "        \n         Master Miss  Mr Mrs Rare Title\n  female      0  264   0 198          4\n  male       61    0 757   0         25"
+                    ]
+                },
+                "mc_idx": 3,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 3,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Create a family size variable including the passenger themselves\nfull$Fsize <- full$SibSp + full$Parch + 1\n\n# Create a family variable \nfull$Family <- paste(full$Surname, full$Fsize, sep='_')",
+            "mc_idx": 4,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.6666666666666666,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "variable": 2
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "size": 3
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    4,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 4,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 4,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Use ggplot2 to visualize the relationship between family size & survival\nggplot(full[1:891,], aes(x = Fsize, fill = factor(Survived))) +\n  geom_bar(stat='count', position='dodge') +\n  scale_x_continuous(breaks=c(1:11)) +\n  labs(x = 'Family Size') +\n  theme_few()",
+            "mc_idx": 5,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 1.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "size": 3
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "ggplot": 2,
+                    "visualize": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/outp/images/d0083_c005_o000_image_0.png",
+                    5,
+                    0,
+                    0
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 5,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 5,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Discretize family size\nfull$FsizeD[full$Fsize == 1] <- 'singleton'\nfull$FsizeD[full$Fsize < 5 & full$Fsize > 1] <- 'small'\nfull$FsizeD[full$Fsize > 4] <- 'large'",
+            "mc_idx": 6,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "size": 8
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    6,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 6,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 6,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# This variable appears to have a lot of missing values\nfull$Cabin[1:28]",
+            "mc_idx": 7,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "variable": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "missing values": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    7,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        " [1] \"\"            \"C85\"         \"\"            \"C123\"        \"\"           \n [6] \"\"            \"E46\"         \"\"            \"\"            \"\"           \n[11] \"G6\"          \"C103\"        \"\"            \"\"            \"\"           \n[16] \"\"            \"\"            \"\"            \"\"            \"\"           \n[21] \"\"            \"D56\"         \"\"            \"A6\"          \"\"           \n[26] \"\"            \"\"            \"C23 C25 C27\""
+                    ]
+                },
+                "mc_idx": 7,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 7,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# The first character is the deck. For example:\nstrsplit(full$Cabin[2], NULL)[[1]]",
+            "mc_idx": 8,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    8,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "[1] \"C\" \"8\" \"5\""
+                    ]
+                },
+                "mc_idx": 8,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 8,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Create a Deck variable. Get passenger deck A - F:\nfull$Deck<-factor(sapply(full$Cabin, function(x) strsplit(x, NULL)[[1]][1]))",
+            "mc_idx": 9,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "variable": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    9,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 9,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 9,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Passengers 62 and 830 are missing Embarkment\nfull[c(62, 830), 'Embarked']",
+            "mc_idx": 10,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    10,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "[1] \"\" \"\""
+                    ]
+                },
+                "mc_idx": 10,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 10,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Since their fare was $80 for 1st class, they most likely embarked from 'C'\nfull$Embarked[c(62, 830)] <- 'C'",
+            "mc_idx": 11,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    11,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 11,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 11,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "ggplot(full[full$Pclass == '3' & full$Embarked == 'S', ], \n  aes(x = Fare)) +\n  geom_density(fill = '#99d6ff', alpha=0.4) + \n  geom_vline(aes(xintercept=median(Fare, na.rm=T)),\n    colour='red', linetype='dashed', lwd=1) +\n  scale_x_continuous(labels=dollar_format()) +\n  theme_few()",
+            "mc_idx": 12,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Visualization",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 1.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "ggplot": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/outp/images/d0083_c012_o001_image_1.png",
+                    12,
+                    1,
+                    1
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "Warning message:\n\u201cRemoved 1 rows containing non-finite values (stat_density).\u201d\n"
+                    ]
+                },
+                "mc_idx": 12,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 12,
+                "o_idx": 1
+            }
+        },
+        {
+            "source": "# Replace missing fare value with median fare for class/embarkment\nfull$Fare[1044] <- median(full[full$Pclass == '3' & full$Embarked == 'S', ]$Fare, na.rm = TRUE)",
+            "mc_idx": 13,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    13,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 13,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 13,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Make variables factors into factors\nfactor_vars <- c('PassengerId','Pclass','Sex','Embarked',\n                 'Title','Family','FsizeD')\n\nfull[factor_vars] <- lapply(full[factor_vars], function(x) as.factor(x))\n\n# Set a random seed\nset.seed(129)\n\n# Perform mice imputation, excluding certain less-than-useful variables:\nmice_mod <- mice(full[, !names(full) %in% c('PassengerId','Name','Ticket','Cabin','Family','Survived')], method='rf') ",
+            "mc_idx": 14,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.5,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "variable": 2
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "size": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    14,
+                    1,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "\n iter imp variable\n  1   1  Age  Deck\n  1   2  Age  Deck\n  1   3  Age  Deck\n  1   4  Age  Deck\n  1   5  Age  Deck\n  2   1  Age  Deck\n  2   2  Age  Deck\n  2   3  Age  Deck\n  2   4  Age  Deck\n  2   5  Age  Deck\n  3   1  Age  Deck\n  3   2  Age  Deck\n  3   3  Age  Deck\n  3   4  Age  Deck\n  3   5  Age  Deck\n  4   1  Age  Deck\n  4   2  Age  Deck\n  4   3  Age  Deck\n  4   4  Age  Deck\n  4   5  Age  Deck\n  5   1  Age  Deck\n  5   2  Age  Deck\n  5   3  Age  Deck\n  5   4  Age  Deck\n  5   5  Age  Deck\n",
+                        "Warning message:\n\u201cNumber of logged events: 50\u201d\n"
+                    ]
+                },
+                "mc_idx": 14,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 14,
+                "o_idx": 1
+            }
+        },
+        {
+            "source": "# Save the complete output \nmice_output <- complete(mice_mod)",
+            "mc_idx": 15,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Data_Export",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 1.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {
+                    "save": 1
+                },
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    15,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 15,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 15,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Plot age distributions\npar(mfrow=c(1,2))\nhist(full$Age, freq=F, main='Age: Original Data', \n  col='darkgreen', ylim=c(0,0.04))\nhist(mice_output$Age, freq=F, main='Age: MICE Output', \n  col='lightgreen', ylim=c(0,0.04))",
+            "mc_idx": 16,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/outp/images/d0083_c016_o000_image_2.png",
+                    16,
+                    0,
+                    2
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 16,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 16,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Replace Age variable from the mice model.\nfull$Age <- mice_output$Age\n\n# Show new number of missing Age values\nsum(is.na(full$Age))",
+            "mc_idx": 17,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 1.0,
+                "Model_Evaluation": 1.0,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "variable": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 1
+                },
+                "Model_Evaluation": {
+                    "model": 1
+                },
+                "Model_Interpretation": {
+                    "model": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    17,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "[1] 0"
+                    ]
+                },
+                "mc_idx": 17,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 17,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "## Build Model",
+            "mc_idx": 18,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "# Split the data back into a train set and a test set\ntrain <- full[1:891,]\ntest <- full[892:1309,]",
+            "mc_idx": 19,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    18,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 19,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 18,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Set a random seed\nset.seed(754)\n\n# Build the model (note: not all possible variables are used)\nrf_model <- randomForest(factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + \n                                            Fare + Embarked + Title + \n                                            FsizeD,\n                                            data = train)\n\n# Show model error\nplot(rf_model, ylim=c(0,0.36))\nlegend('topright', colnames(rf_model$err.rate), col=1:3, fill=1:3)",
+            "mc_idx": 20,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Model_Train",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.2,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.2,
+                "Data_Transform": 0.0,
+                "Model_Train": 1.0,
+                "Model_Evaluation": 1.0,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "variable": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "size": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 5
+                },
+                "Model_Evaluation": {
+                    "model": 5
+                },
+                "Model_Interpretation": {
+                    "model": 5
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/outp/images/d0083_c019_o000_image_3.png",
+                    19,
+                    0,
+                    3
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 20,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 19,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Get importance\nimportance    <- importance(rf_model)\nvarImportance <- data.frame(Variables = row.names(importance), \n                            Importance = round(importance[ ,'MeanDecreaseGini'],2))\n\n# Create a rank variable based on importance\nrankImportance <- varImportance %>%\n  mutate(Rank = paste0('#',dense_rank(desc(Importance))))\n\n# Use ggplot2 to visualize the relative importance of variables\nggplot(rankImportance, aes(x = reorder(Variables, Importance), \n    y = Importance, fill = Importance)) +\n  geom_bar(stat='identity') + \n  geom_text(aes(x = Variables, y = 0.5, label = Rank),\n    hjust=0, vjust=0.55, size = 4, colour = 'red') +\n  labs(x = 'Variables') +\n  coord_flip() + \n  theme_few()",
+            "mc_idx": 21,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.16666666666666666,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.16666666666666666,
+                "Model_Evaluation": 0.16666666666666666,
+                "Model_Interpretation": 0.16666666666666666,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.5,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "variable": 6
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "size": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 1
+                },
+                "Model_Evaluation": {
+                    "model": 1
+                },
+                "Model_Interpretation": {
+                    "model": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "ggplot": 2,
+                    "visualize": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/outp/images/d0083_c020_o000_image_4.png",
+                    20,
+                    0,
+                    4
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 21,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 20,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "## Predict",
+            "mc_idx": 22,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "# Predict using the test set\nprediction <- predict(rf_model, test)\n\n# Save the solution to a dataframe with two columns: PassengerId and Survived (prediction)\nsolution <- data.frame(PassengerID = test$PassengerId, Survived = prediction)\n\n# Write the solution to file\nwrite.csv(solution, file = 'submission.csv', row.names = F)",
+            "mc_idx": 23,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Data_Export",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.3333333333333333,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.3333333333333333,
+                "Model_Evaluation": 0.3333333333333333,
+                "Model_Interpretation": 0.3333333333333333,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 1.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "columns": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 1
+                },
+                "Model_Evaluation": {
+                    "model": 1
+                },
+                "Model_Interpretation": {
+                    "model": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {
+                    "write": 2,
+                    "save": 1
+                },
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    21,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 23,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 21,
+                "o_idx": 0
+            }
+        }
+    ],
+    "code_cells": [
+        {
+            "source": "# Load packages\nlibrary('ggplot2') # visualization\nlibrary('ggthemes') # visualization\nlibrary('scales') # visualization\nlibrary('dplyr') # data manipulation\nlibrary('mice') # imputation\nlibrary('randomForest') # classification algorithm",
+            "mc_idx": 0,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Data_Transform",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 1.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 1.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {
+                    "data manipulation": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "ggplot": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    0,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "\nAttaching package: \u2018dplyr\u2019\n\n\nThe following objects are masked from \u2018package:stats\u2019:\n\n    filter, lag\n\n\nThe following objects are masked from \u2018package:base\u2019:\n\n    intersect, setdiff, setequal, union\n\n\n\nAttaching package: \u2018mice\u2019\n\n\nThe following object is masked from \u2018package:stats\u2019:\n\n    filter\n\n\nThe following objects are masked from \u2018package:base\u2019:\n\n    cbind, rbind\n\n\nrandomForest 4.6-14\n\nType rfNews() to see new features/changes/bug fixes.\n\n\nAttaching package: \u2018randomForest\u2019\n\n\nThe following object is masked from \u2018package:dplyr\u2019:\n\n    combine\n\n\nThe following object is masked from \u2018package:ggplot2\u2019:\n\n    margin\n\n\n"
+                    ]
+                },
+                "mc_idx": 0,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 0,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "train <- read.csv('../input/titanic/train.csv', stringsAsFactors = F)\ntest  <- read.csv('../input/titanic/test.csv', stringsAsFactors = F)\n\nfull  <- bind_rows(train, test) # bind training & test data\n\n# check data\nstr(full)",
+            "mc_idx": 1,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    1,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "'data.frame':\t1309 obs. of  12 variables:\n $ PassengerId: int  1 2 3 4 5 6 7 8 9 10 ...\n $ Survived   : int  0 1 1 1 0 0 0 0 1 1 ...\n $ Pclass     : int  3 1 3 1 3 3 1 3 3 2 ...\n $ Name       : chr  \"Braund, Mr. Owen Harris\" \"Cumings, Mrs. John Bradley (Florence Briggs Thayer)\" \"Heikkinen, Miss. Laina\" \"Futrelle, Mrs. Jacques Heath (Lily May Peel)\" ...\n $ Sex        : chr  \"male\" \"female\" \"female\" \"female\" ...\n $ Age        : num  22 38 26 35 35 NA 54 2 27 14 ...\n $ SibSp      : int  1 1 0 1 0 0 0 3 0 1 ...\n $ Parch      : int  0 0 0 0 0 0 0 1 2 0 ...\n $ Ticket     : chr  \"A/5 21171\" \"PC 17599\" \"STON/O2. 3101282\" \"113803\" ...\n $ Fare       : num  7.25 71.28 7.92 53.1 8.05 ...\n $ Cabin      : chr  \"\" \"C85\" \"\" \"C123\" ...\n $ Embarked   : chr  \"S\" \"C\" \"S\" \"S\" ...\n"
+                    ]
+                },
+                "mc_idx": 1,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 1,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Grab title from passenger names\nfull$Title <- gsub('(.*, )|(\\\\..*)', '', full$Name)\n\n# Show title counts by sex\ntable(full$Sex, full$Title)",
+            "mc_idx": 2,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    2,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "        \n         Capt Col Don Dona  Dr Jonkheer Lady Major Master Miss Mlle Mme  Mr Mrs\n  female    0   0   0    1   1        0    1     0      0  260    2   1   0 197\n  male      1   4   1    0   7        1    0     2     61    0    0   0 757   0\n        \n          Ms Rev Sir the Countess\n  female   2   0   0            1\n  male     0   8   1            0"
+                    ]
+                },
+                "mc_idx": 2,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 2,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Titles with very low cell counts to be combined to \"rare\" level\nrare_title <- c('Dona', 'Lady', 'the Countess','Capt', 'Col', 'Don', \n                'Dr', 'Major', 'Rev', 'Sir', 'Jonkheer')\n\n# Also reassign mlle, ms, and mme accordingly\nfull$Title[full$Title == 'Mlle']        <- 'Miss' \nfull$Title[full$Title == 'Ms']          <- 'Miss'\nfull$Title[full$Title == 'Mme']         <- 'Mrs' \nfull$Title[full$Title %in% rare_title]  <- 'Rare Title'\n\n# Show title counts by sex again\ntable(full$Sex, full$Title)",
+            "mc_idx": 3,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    3,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "        \n         Master Miss  Mr Mrs Rare Title\n  female      0  264   0 198          4\n  male       61    0 757   0         25"
+                    ]
+                },
+                "mc_idx": 3,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 3,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Create a family size variable including the passenger themselves\nfull$Fsize <- full$SibSp + full$Parch + 1\n\n# Create a family variable \nfull$Family <- paste(full$Surname, full$Fsize, sep='_')",
+            "mc_idx": 4,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.6666666666666666,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "variable": 2
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "size": 3
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    4,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 4,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 4,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Use ggplot2 to visualize the relationship between family size & survival\nggplot(full[1:891,], aes(x = Fsize, fill = factor(Survived))) +\n  geom_bar(stat='count', position='dodge') +\n  scale_x_continuous(breaks=c(1:11)) +\n  labs(x = 'Family Size') +\n  theme_few()",
+            "mc_idx": 5,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 1.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "size": 3
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "ggplot": 2,
+                    "visualize": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/outp/images/d0083_c005_o000_image_0.png",
+                    5,
+                    0,
+                    0
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 5,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 5,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Discretize family size\nfull$FsizeD[full$Fsize == 1] <- 'singleton'\nfull$FsizeD[full$Fsize < 5 & full$Fsize > 1] <- 'small'\nfull$FsizeD[full$Fsize > 4] <- 'large'",
+            "mc_idx": 6,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "size": 8
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    6,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 6,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 6,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# This variable appears to have a lot of missing values\nfull$Cabin[1:28]",
+            "mc_idx": 7,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "variable": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "missing values": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    7,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        " [1] \"\"            \"C85\"         \"\"            \"C123\"        \"\"           \n [6] \"\"            \"E46\"         \"\"            \"\"            \"\"           \n[11] \"G6\"          \"C103\"        \"\"            \"\"            \"\"           \n[16] \"\"            \"\"            \"\"            \"\"            \"\"           \n[21] \"\"            \"D56\"         \"\"            \"A6\"          \"\"           \n[26] \"\"            \"\"            \"C23 C25 C27\""
+                    ]
+                },
+                "mc_idx": 7,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 7,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# The first character is the deck. For example:\nstrsplit(full$Cabin[2], NULL)[[1]]",
+            "mc_idx": 8,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    8,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "[1] \"C\" \"8\" \"5\""
+                    ]
+                },
+                "mc_idx": 8,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 8,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Create a Deck variable. Get passenger deck A - F:\nfull$Deck<-factor(sapply(full$Cabin, function(x) strsplit(x, NULL)[[1]][1]))",
+            "mc_idx": 9,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "variable": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    9,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 9,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 9,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Passengers 62 and 830 are missing Embarkment\nfull[c(62, 830), 'Embarked']",
+            "mc_idx": 10,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    10,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "[1] \"\" \"\""
+                    ]
+                },
+                "mc_idx": 10,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 10,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Since their fare was $80 for 1st class, they most likely embarked from 'C'\nfull$Embarked[c(62, 830)] <- 'C'",
+            "mc_idx": 11,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    11,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 11,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 11,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "ggplot(full[full$Pclass == '3' & full$Embarked == 'S', ], \n  aes(x = Fare)) +\n  geom_density(fill = '#99d6ff', alpha=0.4) + \n  geom_vline(aes(xintercept=median(Fare, na.rm=T)),\n    colour='red', linetype='dashed', lwd=1) +\n  scale_x_continuous(labels=dollar_format()) +\n  theme_few()",
+            "mc_idx": 12,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Visualization",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 1.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "ggplot": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/outp/images/d0083_c012_o001_image_1.png",
+                    12,
+                    1,
+                    1
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "Warning message:\n\u201cRemoved 1 rows containing non-finite values (stat_density).\u201d\n"
+                    ]
+                },
+                "mc_idx": 12,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 12,
+                "o_idx": 1
+            }
+        },
+        {
+            "source": "# Replace missing fare value with median fare for class/embarkment\nfull$Fare[1044] <- median(full[full$Pclass == '3' & full$Embarked == 'S', ]$Fare, na.rm = TRUE)",
+            "mc_idx": 13,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    13,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 13,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 13,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Make variables factors into factors\nfactor_vars <- c('PassengerId','Pclass','Sex','Embarked',\n                 'Title','Family','FsizeD')\n\nfull[factor_vars] <- lapply(full[factor_vars], function(x) as.factor(x))\n\n# Set a random seed\nset.seed(129)\n\n# Perform mice imputation, excluding certain less-than-useful variables:\nmice_mod <- mice(full[, !names(full) %in% c('PassengerId','Name','Ticket','Cabin','Family','Survived')], method='rf') ",
+            "mc_idx": 14,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.5,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "variable": 2
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "size": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    14,
+                    1,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "\n iter imp variable\n  1   1  Age  Deck\n  1   2  Age  Deck\n  1   3  Age  Deck\n  1   4  Age  Deck\n  1   5  Age  Deck\n  2   1  Age  Deck\n  2   2  Age  Deck\n  2   3  Age  Deck\n  2   4  Age  Deck\n  2   5  Age  Deck\n  3   1  Age  Deck\n  3   2  Age  Deck\n  3   3  Age  Deck\n  3   4  Age  Deck\n  3   5  Age  Deck\n  4   1  Age  Deck\n  4   2  Age  Deck\n  4   3  Age  Deck\n  4   4  Age  Deck\n  4   5  Age  Deck\n  5   1  Age  Deck\n  5   2  Age  Deck\n  5   3  Age  Deck\n  5   4  Age  Deck\n  5   5  Age  Deck\n",
+                        "Warning message:\n\u201cNumber of logged events: 50\u201d\n"
+                    ]
+                },
+                "mc_idx": 14,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 14,
+                "o_idx": 1
+            }
+        },
+        {
+            "source": "# Save the complete output \nmice_output <- complete(mice_mod)",
+            "mc_idx": 15,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Data_Export",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 1.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {
+                    "save": 1
+                },
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    15,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 15,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 15,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Plot age distributions\npar(mfrow=c(1,2))\nhist(full$Age, freq=F, main='Age: Original Data', \n  col='darkgreen', ylim=c(0,0.04))\nhist(mice_output$Age, freq=F, main='Age: MICE Output', \n  col='lightgreen', ylim=c(0,0.04))",
+            "mc_idx": 16,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/outp/images/d0083_c016_o000_image_2.png",
+                    16,
+                    0,
+                    2
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 16,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 16,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Replace Age variable from the mice model.\nfull$Age <- mice_output$Age\n\n# Show new number of missing Age values\nsum(is.na(full$Age))",
+            "mc_idx": 17,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 1.0,
+                "Model_Evaluation": 1.0,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "variable": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 1
+                },
+                "Model_Evaluation": {
+                    "model": 1
+                },
+                "Model_Interpretation": {
+                    "model": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    17,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "[1] 0"
+                    ]
+                },
+                "mc_idx": 17,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 17,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Split the data back into a train set and a test set\ntrain <- full[1:891,]\ntest <- full[892:1309,]",
+            "mc_idx": 19,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Other",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [],
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    18,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 19,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 18,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Set a random seed\nset.seed(754)\n\n# Build the model (note: not all possible variables are used)\nrf_model <- randomForest(factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + \n                                            Fare + Embarked + Title + \n                                            FsizeD,\n                                            data = train)\n\n# Show model error\nplot(rf_model, ylim=c(0,0.36))\nlegend('topright', colnames(rf_model$err.rate), col=1:3, fill=1:3)",
+            "mc_idx": 20,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Model_Train",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.2,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.2,
+                "Data_Transform": 0.0,
+                "Model_Train": 1.0,
+                "Model_Evaluation": 1.0,
+                "Model_Interpretation": 1.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "variable": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "size": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 5
+                },
+                "Model_Evaluation": {
+                    "model": 5
+                },
+                "Model_Interpretation": {
+                    "model": 5
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/outp/images/d0083_c019_o000_image_3.png",
+                    19,
+                    0,
+                    3
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 20,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 19,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Get importance\nimportance    <- importance(rf_model)\nvarImportance <- data.frame(Variables = row.names(importance), \n                            Importance = round(importance[ ,'MeanDecreaseGini'],2))\n\n# Create a rank variable based on importance\nrankImportance <- varImportance %>%\n  mutate(Rank = paste0('#',dense_rank(desc(Importance))))\n\n# Use ggplot2 to visualize the relative importance of variables\nggplot(rankImportance, aes(x = reorder(Variables, Importance), \n    y = Importance, fill = Importance)) +\n  geom_bar(stat='identity') + \n  geom_text(aes(x = Variables, y = 0.5, label = Rank),\n    hjust=0, vjust=0.55, size = 4, colour = 'red') +\n  labs(x = 'Variables') +\n  coord_flip() + \n  theme_few()",
+            "mc_idx": 21,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.16666666666666666,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.16666666666666666,
+                "Model_Evaluation": 0.16666666666666666,
+                "Model_Interpretation": 0.16666666666666666,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.5,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "variable": 6
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "size": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 1
+                },
+                "Model_Evaluation": {
+                    "model": 1
+                },
+                "Model_Interpretation": {
+                    "model": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "ggplot": 2,
+                    "visualize": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/outp/images/d0083_c020_o000_image_4.png",
+                    20,
+                    0,
+                    4
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 21,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 20,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "# Predict using the test set\nprediction <- predict(rf_model, test)\n\n# Save the solution to a dataframe with two columns: PassengerId and Survived (prediction)\nsolution <- data.frame(PassengerID = test$PassengerId, Survived = prediction)\n\n# Write the solution to file\nwrite.csv(solution, file = 'submission.csv', row.names = F)",
+            "mc_idx": 23,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Data_Export",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.3333333333333333,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.3333333333333333,
+                "Model_Evaluation": 0.3333333333333333,
+                "Model_Interpretation": 0.3333333333333333,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 1.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "columns": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {
+                    "model": 1
+                },
+                "Model_Evaluation": {
+                    "model": 1
+                },
+                "Model_Interpretation": {
+                    "model": 1
+                },
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {
+                    "write": 2,
+                    "save": 1
+                },
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    21,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 23,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 21,
+                "o_idx": 0
+            }
+        }
+    ],
+    "markdown_cells": [
+        {
+            "source": "## Build Model",
+            "mc_idx": 18,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "## Predict",
+            "mc_idx": 22,
+            "nb_idx": 83,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        }
+    ],
+    "sim_matrix": [
+        0.938073992729187,
+        0.9077191352844238,
+        0.9154474139213562,
+        0.9438539147377014,
+        0.8925408124923706,
+        0.9077696204185486,
+        0.9359368085861206,
+        0.9300333261489868,
+        0.9317453503608704,
+        0.9154788255691528,
+        0.9142443537712097,
+        0.9137656092643738,
+        0.9320189952850342,
+        0.9144946932792664,
+        0.9396729469299316,
+        0.9160808324813843,
+        0.9286894202232361,
+        0.9077696204185486,
+        0.9369826316833496,
+        0.9108772873878479,
+        0.923373281955719,
+        0.9300333261489868,
+        0.9386734962463379,
+        0.9459035992622375,
+        0.9079881906509399,
+        0.9059969186782837,
+        0.924440860748291,
+        0.9361380338668823,
+        0.9397771954536438,
+        0.8572635650634766,
+        0.946611225605011,
+        0.9189761877059937,
+        0.9375976324081421,
+        0.9007789492607117,
+        0.9372689723968506,
+        0.9161365032196045,
+        0.9372689723968506,
+        0.9375935196876526,
+        0.9400056600570679,
+        0.8648993968963623,
+        0.879213273525238,
+        0.9216946363449097,
+        0.8874066472053528,
+        0.923373281955719,
+        0.9428329467773438,
+        0.9459035992622375,
+        0.9382668137550354,
+        0.9375976324081421,
+        0.9299923777580261,
+        0.9451958537101746,
+        0.9644331336021423,
+        0.9161365032196045,
+        0.9160808324813843,
+        0.9304072856903076,
+        0.9064006209373474,
+        0.9394640922546387,
+        0.885836660861969,
+        0.9281577467918396,
+        0.9302499294281006,
+        0.9274235963821411,
+        0.9217851161956787,
+        0.9368305802345276,
+        0.913506269454956,
+        0.9038792848587036,
+        0.9061979651451111,
+        0.9201909303665161,
+        0.8826388120651245,
+        0.7425369024276733,
+        0.9316000938415527,
+        0.9491179585456848,
+        0.9450986385345459,
+        0.9212785959243774,
+        0.9418161511421204,
+        0.9145547747612,
+        0.9322696328163147,
+        0.9223623871803284,
+        0.9346611499786377,
+        0.932416558265686,
+        0.9132782816886902,
+        0.9112083911895752,
+        0.9386165142059326,
+        0.9356286525726318,
+        0.9438782334327698,
+        1.0,
+        0.9074105620384216,
+        0.9389135837554932,
+        0.9299935102462769,
+        0.9386734962463379,
+        0.9210063815116882,
+        0.8994225859642029,
+        0.9375935196876526,
+        0.9108772873878479,
+        0.9007789492607117,
+        0.9305537343025208,
+        0.9573218822479248,
+        0.8841238021850586,
+        0.949439525604248,
+        0.9652113914489746
+    ],
+    "cell_sim_matrix": [],
+    "nb_order": [],
+    "summary_data_VA": null
+}

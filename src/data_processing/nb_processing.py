@@ -238,35 +238,37 @@ def add_q_numbers(notebooks, VA_data):
         return VA_notebooks
 
 
-def save_notebooks_to_json(notebooks, output_path, cell_path, embedding_method):
+def save_notebooks_to_json(notebooks, nb_path, cell_path, embedding_method):
     """
     This function saves the processed notebooks as json files in the output path.
 
     :param notebooks (list): list of Notebook objects
-    :param output_path (str): path to the folder where the json files will be saved
+    :param nb_path (str): path to the folder where the notebooks will be saved
+    :param cell_path (str): path to the folder where the cells will be saved
+    :param embedding_method (str): the embedding method used
 
-    :return None, though json files are stored in the output_path
+    :return None, though json files are stored in the nb_path
     """
-    # Create output and images folders
-    # if not os.path.exists(output_path):
-    #     os.makedirs(output_path)
 
-    # save processed notebooks as json
     for nb in notebooks:
         print(nb.nb_name)
         nb_dict = nb.to_dict()
-        filepath_json = os.path.join(output_path, nb_dict['nb_name'] + '_' + embedding_method + '_' + nb_dict['filename'] +'.json')
+        nb_path_json = os.path.join(nb_path, nb_dict['nb_name'] + '_' + embedding_method + '_' + nb_dict['filename'] +'.json')
         
-        with open(filepath_json, 'w') as f:
+        with open(nb_path_json, 'w') as f:
             json.dump(nb_dict, f, indent=4)
         f.close()
 
-        # save all_cells to json
-        filepath_cell_json = os.path.join(cell_path, nb_dict['nb_name'] + '_' + embedding_method + '_' + nb_dict['filename'] +'_all_cells.json')
-        with open(filepath_cell_json, 'w') as f:
-            json.dump(nb.all_cells, f, indent=4)
-        f.close()
+        
+        # TODO: make cell_to_dict() in Cell Class --- save all_cells to json
+        # cell_path_json = os.path.join(cell_path, nb_dict['nb_name'] + '_' + embedding_method + '_' + nb_dict['filename'] +'_all_cells.json')
+        # with open(cell_path_json, 'w') as f:
+        #     json.dump(nb.all_cells, f, indent=4)
+        # f.close()
+        cell_path_json = None
     
-    return filepath_json, filepath_cell_json
+    
+    print(f'Files saved to {nb_path_json} and cell json to {cell_path_json}')
+    return nb_path_json, cell_path_json
 
 

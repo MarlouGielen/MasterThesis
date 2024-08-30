@@ -29,10 +29,12 @@ class Cell:
         self.nb_idx = nb_idx
 
         self.embedding = {}
+        self.classification = None          
+        self.class_probability = {}         
+        self.detailed_scores = {}      
+        self.keywords = {}     
 
-        self.classification = {}
-        self.keywords = {}
-
+        self.emb = 0                        
         self.summary = None
 
         # conditional attributes
@@ -67,15 +69,39 @@ class Cell:
         return {
             'source': self.source,
             'mc_idx': self.mc_idx,
+            'nb_idx': self.nb_idx,
             'embedding': self.embedding,
             'classification': self.classification,
             'keywords': self.keywords,
             'summary': self.summary,
-            'q_number': getattr(self, 'q_number', None),
-            'duration': getattr(self, 'duration', None),
-            'exception': getattr(self, 'exception', None)
+            'q_number': self.q_number,
+            'duration': self.duration,
+            'exception': self.exception,
+            'classification': self.classification,
+            'class_probability': self.class_probability,
+            'detailed_scores': self.detailed_scores,
+            'emb': self.emb
         }
     
+    @classmethod
+    def from_dict(cls, cell_dict):
+        cell = cls(
+            cell={'source': cell_dict['source']},
+            mc_idx=cell_dict['mc_idx'],
+            nb_idx=cell_dict['nb_idx']
+        )
+        cell.embedding = cell_dict['embedding']
+        cell.classification = cell_dict['classification']
+        cell.keywords = cell_dict['keywords']
+        cell.summary = cell_dict['summary']
+        cell.q_number = cell_dict['q_number']
+        cell.duration = cell_dict['duration']
+        cell.exception = cell_dict['exception']
+        return cell
+    
+
+
+
 # inheritance
 class CodeCell(Cell):
     def __init__(self, cell, c_idx, mc_idx, nb_idx):
@@ -94,13 +120,31 @@ class CodeCell(Cell):
 
     def to_dict(self):
         cell_dict = super().to_dict()
-        output = getattr(self, 'output', None)
+        output = self.output.to_dict()
         cell_dict.update({
-                'cell_type': self.cell_type,
-                'image_path': getattr(self, 'image_path', []),
-                'output': output.to_dict() if output else None
-            })
+            'cell_type': self.cell_type,
+            'image_path': self.image_path,
+            'output': output
+        })
         return cell_dict
+
+    @classmethod
+    def from_dict(cls, cell_dict):
+        cell = cls(
+            cell={'source': cell_dict['source'], 'cell_type': cell_dict['cell_type']},
+            c_idx=None, mc_idx=cell_dict['mc_idx'], nb_idx=cell_dict['nb_idx']
+        )
+        cell.embedding = cell_dict['embedding']
+        cell.classification = cell_dict['classification']
+        cell.summary = cell_dict['summary']
+        cell.q_number = cell_dict['q_number']
+        cell.duration = cell_dict['duration']
+        cell.exception = cell_dict['exception']
+        cell.image_path = cell_dict['image_path']
+        if cell_dict['output']:
+            cell.output = OutputCell.from_dict(cell_dict['output'])
+        return cell
+
 
 
 # inheritance
@@ -108,19 +152,36 @@ class MarkCell(Cell):
     def __init__(self, cell, m_idx, mc_idx, nb_idx):
         super().__init__(cell, mc_idx, nb_idx)
         self.cell_type = cell['cell_type']
+        
+    def __init__(self, cell, m_idx, mc_idx, nb_idx):
+        super().__init__(cell, mc_idx, nb_idx)
+        self.cell_type = cell['cell_type']
 
     def to_dict(self):
         cell_dict = super().to_dict()
-        cell_dict.update({
-            'cell_type': self.cell_type
-        })
+        cell_dict.update({'cell_type': self.cell_type})
         return cell_dict
+
+    @classmethod
+    def from_dict(cls, cell_dict):
+        cell = cls(
+            cell={'source': cell_dict['source'], 'cell_type': cell_dict['cell_type']},
+            m_idx=None, mc_idx=cell_dict['mc_idx'], nb_idx=cell_dict['nb_idx']
+        )
+        cell.embedding = cell_dict['embedding']
+        cell.classification = cell_dict['classification']
+        cell.summary = cell_dict['summary']
+        cell.q_number = cell_dict['q_number']
+        cell.duration = cell_dict['duration']
+        cell.exception = cell_dict['exception']
+        return cell
 
 
 # inheritance
 class OutputCell(Cell):
-    def __init__(self, cell, c_idx, o_idx, mc_idx):
-        super().__init__(cell, mc_idx)
+    def __init__(self, source, c_idx, o_idx, mc_idx):
+        super().__init__(source, mc_idx)
+        self.source = source
         self.cell_type = 'output'
         self.mc_idx = mc_idx
         self.c_idx = c_idx

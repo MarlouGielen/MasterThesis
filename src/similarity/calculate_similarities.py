@@ -1,10 +1,12 @@
 import os
 import pickle
+import time
+import torch
 import numpy as np
 from torch.nn import functional as F
 #from concurrent.futures import ThreadPoolExecutor
 
-from src.embedding import get_embedding, load_model_tokenizer
+from src.embedding import get_embedding, load_model_tokenizer, get_code_embedding
 
 
 def calculate_similarities(notebooks, embedding_method, heatmap_path, all_nb=True, all_cells=True, combi=True):
@@ -16,10 +18,18 @@ def calculate_similarities(notebooks, embedding_method, heatmap_path, all_nb=Tru
     # Calculate similarities for all nbs
     if all_nb:
         # Get similarity matrix for notebooks
-        sim_matrices, new_order = get_sim_matrix_per_nb(notebooks, tokenizer, model, embedding_method)
+        sim_matrices, new_order = get_sim_matrix_per_nb(notebooks, tokenizer, model, embedding_method, code=False)
         nb_output_path = None #plot_heatmap(sim_matrices, new_order, heatmap_path + embedding_method + "_nb_heatmap.png")
         save_similarities(sim_matrices, heatmap_path + embedding_method + "_nb_similarities.pkl")
-        #print("Notebook similarities obtained for", len(sim_matrices), "notebooks.")
+        del sim_matrices
+        del new_order
+
+        sim_matrices, new_order = get_sim_matrix_per_nb(notebooks, tokenizer, model, embedding_method, code=True)
+        nb_output_path = None #plot_heatmap(sim_matrices, new_order, heatmap_path + embedding_method + "_nb_heatmap.png")
+        save_similarities(sim_matrices, heatmap_path + embedding_method + "_nb_similarities_code_only.pkl")
+        del sim_matrices
+        del new_order
+
     else:
         sim_matrices = None
         nb_output_path = None
@@ -29,6 +39,22 @@ def calculate_similarities(notebooks, embedding_method, heatmap_path, all_nb=Tru
         cell_similarities = get_sim_matrix_per_cell(notebooks, tokenizer, model, embedding_method)
         save_similarities(cell_similarities, heatmap_path + embedding_method + "_cell_similarities.pkl")
         cell_output_path = None
+
+        # # test
+        # nb1_ = 0
+        # c1_ =  2
+        # nb2_ = 1
+        # c2_ = 0
+
+        # print(f"SIMILARITY: {nb1_}-{c1_}-{nb2_}-{c2_} is {cell_similarities[nb1_][nb2_][c1_][c2_]}")
+        
+        # print(f"SOURCE: {nb1_}-{c1_} is: {notebooks[nb1_].all_cells[c1_].source}")
+        # print(f"SOURCE: {nb2_}-{c2_} is:{notebooks[nb2_].all_cells[c2_].source}")
+
+        # delete cell similarities to save memory
+        del cell_similarities
+        
+
         # # heatmap per nb - nb combination
         # for nb_idx, nb1 in enumerate(cell_similarities):
         #     nb_cell_sim = np.array(nb1)  # Convert to numpy array for easier manipulation
@@ -91,7 +117,7 @@ def save_similarities(similarities, output_path):
     return output_path
 
 
-def get_sim_matrix_per_nb(notebooks, tokenizer, model, embedding_method):
+def get_sim_matrix_per_nb(notebooks, tokenizer, model, embedding_method, code=False):
     """
     Get the similarity matrix for each notebook in the list.
 
@@ -105,15 +131,24 @@ def get_sim_matrix_per_nb(notebooks, tokenizer, model, embedding_method):
     # Get embeddings for all notebooks
     for nb1 in notebooks:
         print(f"sim nb {nb1.nb_idx}/{len(notebooks)} done ")
-        emb_nb1 = get_embedding(nb1, tokenizer, model, embedding_method)
+        if code:
+            emb_nb1 = get_code_embedding(nb1, tokenizer, model, embedding_method)
+        else:
+            emb_nb1 = get_embedding(nb1, tokenizer, model, embedding_method)
         sim_nb = []
         for nb2 in notebooks:
-            emb_nb2 = get_embedding(nb2, tokenizer, model, embedding_method)
+            if code:
+                emb_nb2 = get_code_embedding(nb2, tokenizer, model, embedding_method)
+            else:
+                emb_nb2 = get_embedding(nb2, tokenizer, model, embedding_method)
             sim_nb.append(F.cosine_similarity(emb_nb1, emb_nb2).item())
             del emb_nb2
         del emb_nb1
         sim_matrices.append(sim_nb)
-        nb1.sim_matrix = sim_nb
+        if code:
+            nb1.sim_matrix_code = sim_nb
+        else:
+            nb1.sim_matrix = sim_nb
 
     # determine new notebook order with most similar next to each other
     order = [0] # start with first notebook
@@ -130,9 +165,11 @@ def get_sim_matrix_per_nb(notebooks, tokenizer, model, embedding_method):
         order.append(max_idx)
         remaining.remove(max_idx)
 
-    nb1.nb_order = order
-    #print("New notebook order:", order)
-
+    if code:
+        nb1.nb_order_code = order
+    else:
+        nb1.nb_order = order
+    
     return sim_matrices, order
 
 
@@ -146,64 +183,74 @@ def get_sim_matrix_per_cell(notebooks, tokenizer, model, embedding_method, cell_
 
     :return sim_matrices (list): the list of similarity matrices
     """
+    # if torch.cuda.is_available():
+    #     device = 'cuda'
+    # else:
+    #     device = 'cpu'
 
-    #TODO: max_cell remove
-    max_cell = 100000
+    max_cell = 1000 #TODO: remove this
+
     def compute_embedding(cell):
-        return get_embedding(cell, tokenizer, model, embedding_method)
+        return get_embedding(cell, tokenizer, model, embedding_method) #.to('cpu')
+    
+    def cosine_similarity_matrix(embeddings1, embeddings2):
+        # Assuming embeddings1 and embeddings2 are lists of embeddings
+        size1 = len(embeddings1)
+        size2 = len(embeddings2)
+        sim_matrix = torch.zeros(size1, size2)
+        
+        for i in range(size1):
+            for j in range(size2):
+                sim = F.cosine_similarity(embeddings1[i], embeddings2[j]).item()
+                sim_matrix[i, j] = sim
+
+        return sim_matrix
+    
+    # dictionary of all embeddings per key as nb_idx
+    print('Embeddings calculation started')
+    emb_st = time.time()
+    try:
+        embeddings = {}
+        #embeddings = {nb.nb_idx: [compute_embedding(cell) for cell in nb.all_cells] for nb in notebooks}
+        for nb in notebooks:
+            nb_embs = []
+            for ci, cell in enumerate(nb.all_cells):
+                # if cell.cell_type == 'markdown':
+                #     emb = None
+                emb = compute_embedding(cell)
+                nb_embs.append(emb)
+
+                if ci == max_cell:
+                    break
+            embeddings[nb.nb_idx] = nb_embs
+    except Exception as e:
+        print(f"Error in embedding calculation: {e}")
+        return []
+    
+    print(f"Embeddings {len(embeddings)} loaded in {time.time() - emb_st} seconds")
 
     sim_matrices = []                   # all nb1, all cells1, all nb2, all cells2
+    
     for nb1 in notebooks:
-        print(f"sim cells {nb1.nb_idx}/{len(notebooks)} done ")
-        cells_nb1 = nb1.all_cells
 
-        # Compute embeddings for cells in nb1
-        # embeddings_nb1 = []
-        # with ThreadPoolExecutor() as executor:
-        #     embeddings_nb1 = list(executor.map(compute_embedding, cells_nb1))
+        st = time.time()
+        embeddings_nb1 = embeddings[nb1.nb_idx]
 
         sim_cell_nb_cell = []           # all cells1, all nb2, all cells2       (do for each          emb of cell1)
-        for c1, cell1 in enumerate(cells_nb1):
-            emb1 = get_embedding(cell1, tokenizer, model, embedding_method)
-            
-            sim_nb_cell = []            # all nb2, all cells2                   (compare all nb2   to emb of cell1)
-            for nb2 in notebooks:
-                cells_nb2 = nb2.all_cells
+        
+        for nb2 in notebooks:
+            embeddings_nb2 = embeddings[nb2.nb_idx]
 
-                sim_cell = []           # all cells2                            (compare all cell2 to emb of cell1)
-                for c2, cell2 in enumerate(cells_nb2):
-                    emb2 = get_embedding(cell2, tokenizer, model, embedding_method)
-                    sim_cell.append(F.cosine_similarity(emb1, emb2).item())
-                    del emb2
+            sim_matrix = cosine_similarity_matrix(embeddings_nb1, embeddings_nb2)
 
-                    if c2 == max_cell:
-                        break
-                
-                sim_nb_cell.append(sim_cell)
-
-                # Compute embeddings for cells in nb2
-                # embeddings_nb2 = []
-                # with ThreadPoolExecutor() as executor:
-                #     embeddings_nb2 = list(executor.map(compute_embedding, cells_nb2))
-
-                # Compute similarities and free up memory for embeddings_nb2
-                # sim_cell = [F.cosine_similarity(emb1, emb2).item() for emb2 in embeddings_nb2]
-                # sim_nb_cell.append(sim_cell)
-                
-                # del embeddings_nb2
-
-            if c1 == max_cell:
-                break
-            
-            sim_cell_nb_cell.append(sim_nb_cell)
+            sim_cell_nb_cell.append(sim_matrix.tolist())
+            #print(f'The similarities for nb{nb1.nb_idx} and nb{nb2.nb_idx} were calculated')
 
         sim_matrices.append(sim_cell_nb_cell)
-
         nb1.cell_sim_matrix = sim_cell_nb_cell
 
-        # # Clear embeddings_nb1 to free memory
-        # del embeddings_nb1
-
+        print(f"sim cells {nb1.nb_idx}/{len(notebooks)} done in {time.time() - st}")
+        
     return sim_matrices
 
 

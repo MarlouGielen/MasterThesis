@@ -1,0 +1,2544 @@
+{
+    "nb_idx": 50,
+    "nb_name": "d0050",
+    "filename": "titanic-data-exploration-starter.ipynb",
+    "filepath": "data/data_Kaggle/raw/titanic-data-exploration-starter.ipynb",
+    "source": "# Data Exploration Starter\n## Data Exploration Titanic: Machine Learning from Disaster\n## Sergei Neviadomski \n First thing I want to mention is that this notebook is intended to provide first glance on data and variables. You won't find here any analysis of features interrelation or feature engineering. I intentionally provide only charts that show feature related information (distribution, bar plots and etc) and feature - label relationship.\n\nI appreciate any constructive criticism and hope my notebook will help you understand data little bit more.\n\nPlease upvote if you think my notebook deserves it.\n\nThanks.\n\nP.S. I think the best way to use my notebook is to quickly read through it and then come back as soon as you need additional information related to any feature. \n ### Necessary libraries\nimport pandas as pd\nimport numpy as np\nimport matplotlib.pyplot as plt\nimport seaborn as sns\n\n### Seaborn style\nsns.set_style(\"whitegrid\") \n ### Let's import our data\ntrain_data = pd.read_csv('../input/train.csv',index_col='PassengerId')\n### and test if everything OK\ntrain_data.head() \n ### ... check for NAs in sense Pandas understands them\ntrain_data.isnull().sum() \n ### Now let's prepare lists of numeric and categorical columns\n# Numeric Features\nnumeric_features = ['Age', 'Fare']\n# Categorical Features\nordinal_features = ['Pclass', 'SibSp', 'Parch']\nnominal_features = ['Sex', 'Embarked'] \n ### Adding new column with beautiful target names\ntrain_data['target_name'] = train_data['Survived'].map({0: 'Not Survived', 1: 'Survived'}) \n ### Target Exploration \n ### Target variable exploration\nsns.countplot(train_data.target_name);\nplt.xlabel('Survived?');\nplt.ylabel('Number of occurrences');\nplt.show() \n ### Corralation between features (variables) \n ### Corralation matrix heatmap\n# Getting correlation matrix\ncor_matrix = train_data[numeric_features + ordinal_features].corr().round(2)\n# Plotting heatmap \nfig = plt.figure(figsize=(12,12));\nsns.heatmap(cor_matrix, annot=True, center=0, cmap = sns.diverging_palette(250, 10, as_cmap=True), ax=plt.subplot(111));\nplt.show() \n ### Numeric Features Exploration \n ### Plotting Numeric Features\n# Looping through and Plotting Numeric features\nfor column in numeric_features:    \n    # Figure initiation\n    fig = plt.figure(figsize=(18,12))\n    \n    ### Distribution plot\n    sns.distplot(train_data[column].dropna(), ax=plt.subplot(221));\n    # X-axis Label\n    plt.xlabel(column, fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Density', fontsize=14);\n    # Adding Super Title (One for a whole figure)\n    plt.suptitle('Plots for '+column, fontsize=18);\n    \n    ### Distribution per Survived / Not Survived Value\n    # Not Survived hist\n    sns.distplot(train_data.loc[train_data.Survived==0, column].dropna(),\n                 color='red', label='Not Survived', ax=plt.subplot(222));\n    # Survived hist\n    sns.distplot(train_data.loc[train_data.Survived==1, column].dropna(),\n                 color='blue', label='Survived', ax=plt.subplot(222));\n    # Adding Legend\n    plt.legend(loc='best')\n    # X-axis Label\n    plt.xlabel(column, fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Density per Survived / Not Survived Value', fontsize=14);\n    \n    ### Average Column value per Survived / Not Survived Value\n    sns.barplot(x=\"target_name\", y=column, data=train_data, ax=plt.subplot(223));\n    # X-axis Label\n    plt.xlabel('Survived or Not Survived?', fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Average ' + column, fontsize=14);\n    \n    ### Boxplot of Column per Survived / Not Survived Value\n    sns.boxplot(x=\"target_name\", y=column, data=train_data, ax=plt.subplot(224));\n    # X-axis Label\n    plt.xlabel('Survived or Not Survived?', fontsize=14);\n    # Y-axis Label\n    plt.ylabel(column, fontsize=14);\n    # Printing Chart\n    plt.show() \n ### Categorical (Ordinal) Features Exploration \n ### Plotting Categorical Features\n# Looping through and Plotting Categorical features\nfor column in ordinal_features:\n    # Figure initiation\n    fig = plt.figure(figsize=(18,18))\n\n    ### Average Column value per Survived / Not Survived Value\n    sns.barplot(x=\"target_name\", y=column, data=train_data, ax=plt.subplot(321));\n    # X-axis Label\n    plt.xlabel('Survived or Not Survived?', fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Average ' + column, fontsize=14);\n    # Adding Super Title (One for a whole figure)\n    plt.suptitle('Plots for '+column, fontsize=18);\n\n    ### Boxplot of Column per Survived / Not Survived Value\n    sns.boxplot(x=\"target_name\", y=column, data=train_data, ax=plt.subplot(322));\n    # X-axis Label\n    plt.xlabel('Survived or Not Survived?', fontsize=14);\n    # Y-axis Label\n    plt.ylabel(column, fontsize=14);\n\n    ### Number of occurrences per categoty - target pair\n    ax = sns.countplot(x=column, hue=\"target_name\", data=train_data, ax = plt.subplot(312));\n    # X-axis Label\n    plt.xlabel(column, fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Number of occurrences', fontsize=14);\n    # Setting Legend location \n    plt.legend(loc=1);\n\n    ### Adding percents over bars\n    # Getting heights of our bars\n    height = [p.get_height() if p.get_height()==p.get_height() else 0 for p in ax.patches]\n    # Counting number of bar groups \n    ncol = int(len(height)/2)\n    # Counting total height of groups\n    total = [height[i] + height[i + ncol] for i in range(ncol)] * 2\n    # Looping through bars\n    for i, p in enumerate(ax.patches):    \n        # Adding percentages   \n        ax.text(p.get_x()+p.get_width()/2, height[i]*1.01 + 10,\n                '{:1.0%}'.format(height[i]/total[i]), ha=\"center\", size=14) \n\n    ### Survived percentage for every value of feature\n    sns.pointplot(x=column, y='Survived', data=train_data, ax = plt.subplot(313));\n    # X-axis Label\n    plt.xlabel(column, fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Survived Percentage', fontsize=14);\n    # Printing Chart\n    plt.show() \n ### Categorical (Nominal) Features Exploration \n ### Plotting Categorical Features\n# Looping through and Plotting Categorical features\nfor column in nominal_features:\n    # Figure initiation\n    fig = plt.figure(figsize=(18,12))\n    \n    ### Number of occurrences per categoty - target pair\n    ax = sns.countplot(x=column, hue=\"target_name\", data=train_data, ax = plt.subplot(211));\n    # X-axis Label\n    plt.xlabel(column, fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Number of occurrences', fontsize=14);\n    # Adding Super Title (One for a whole figure)\n    plt.suptitle('Plots for '+column, fontsize=18);\n    # Setting Legend location \n    plt.legend(loc=1);\n    \n    ### Adding percents over bars\n    # Getting heights of our bars\n    height = [p.get_height() for p in ax.patches]\n    # Counting number of bar groups \n    ncol = int(len(height)/2)\n    # Counting total height of groups\n    total = [height[i] + height[i + ncol] for i in range(ncol)] * 2\n    # Looping through bars\n    for i, p in enumerate(ax.patches):    \n        # Adding percentages\n        ax.text(p.get_x()+p.get_width()/2, height[i]*1.01 + 10,\n                '{:1.0%}'.format(height[i]/total[i]), ha=\"center\", size=14) \n\n    \n    ### Survived percentage for every value of feature\n    sns.pointplot(x=column, y='Survived', data=train_data, ax = plt.subplot(212));\n    # X-axis Label\n    plt.xlabel(column, fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Survived Percentage', fontsize=14);\n    # Printing Chart\n    plt.show() \n ### Please upvote if my notebook helped you in any way :)",
+    "code_source": "### Necessary libraries\nimport pandas as pd\nimport numpy as np\nimport matplotlib.pyplot as plt\nimport seaborn as sns\n\n### Seaborn style\nsns.set_style(\"whitegrid\") \n ### Let's import our data\ntrain_data = pd.read_csv('../input/train.csv',index_col='PassengerId')\n### and test if everything OK\ntrain_data.head() \n ### ... check for NAs in sense Pandas understands them\ntrain_data.isnull().sum() \n ### Now let's prepare lists of numeric and categorical columns\n# Numeric Features\nnumeric_features = ['Age', 'Fare']\n# Categorical Features\nordinal_features = ['Pclass', 'SibSp', 'Parch']\nnominal_features = ['Sex', 'Embarked'] \n ### Adding new column with beautiful target names\ntrain_data['target_name'] = train_data['Survived'].map({0: 'Not Survived', 1: 'Survived'}) \n ### Target variable exploration\nsns.countplot(train_data.target_name);\nplt.xlabel('Survived?');\nplt.ylabel('Number of occurrences');\nplt.show() \n ### Corralation matrix heatmap\n# Getting correlation matrix\ncor_matrix = train_data[numeric_features + ordinal_features].corr().round(2)\n# Plotting heatmap \nfig = plt.figure(figsize=(12,12));\nsns.heatmap(cor_matrix, annot=True, center=0, cmap = sns.diverging_palette(250, 10, as_cmap=True), ax=plt.subplot(111));\nplt.show() \n ### Plotting Numeric Features\n# Looping through and Plotting Numeric features\nfor column in numeric_features:    \n    # Figure initiation\n    fig = plt.figure(figsize=(18,12))\n    \n    ### Distribution plot\n    sns.distplot(train_data[column].dropna(), ax=plt.subplot(221));\n    # X-axis Label\n    plt.xlabel(column, fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Density', fontsize=14);\n    # Adding Super Title (One for a whole figure)\n    plt.suptitle('Plots for '+column, fontsize=18);\n    \n    ### Distribution per Survived / Not Survived Value\n    # Not Survived hist\n    sns.distplot(train_data.loc[train_data.Survived==0, column].dropna(),\n                 color='red', label='Not Survived', ax=plt.subplot(222));\n    # Survived hist\n    sns.distplot(train_data.loc[train_data.Survived==1, column].dropna(),\n                 color='blue', label='Survived', ax=plt.subplot(222));\n    # Adding Legend\n    plt.legend(loc='best')\n    # X-axis Label\n    plt.xlabel(column, fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Density per Survived / Not Survived Value', fontsize=14);\n    \n    ### Average Column value per Survived / Not Survived Value\n    sns.barplot(x=\"target_name\", y=column, data=train_data, ax=plt.subplot(223));\n    # X-axis Label\n    plt.xlabel('Survived or Not Survived?', fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Average ' + column, fontsize=14);\n    \n    ### Boxplot of Column per Survived / Not Survived Value\n    sns.boxplot(x=\"target_name\", y=column, data=train_data, ax=plt.subplot(224));\n    # X-axis Label\n    plt.xlabel('Survived or Not Survived?', fontsize=14);\n    # Y-axis Label\n    plt.ylabel(column, fontsize=14);\n    # Printing Chart\n    plt.show() \n ### Plotting Categorical Features\n# Looping through and Plotting Categorical features\nfor column in ordinal_features:\n    # Figure initiation\n    fig = plt.figure(figsize=(18,18))\n\n    ### Average Column value per Survived / Not Survived Value\n    sns.barplot(x=\"target_name\", y=column, data=train_data, ax=plt.subplot(321));\n    # X-axis Label\n    plt.xlabel('Survived or Not Survived?', fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Average ' + column, fontsize=14);\n    # Adding Super Title (One for a whole figure)\n    plt.suptitle('Plots for '+column, fontsize=18);\n\n    ### Boxplot of Column per Survived / Not Survived Value\n    sns.boxplot(x=\"target_name\", y=column, data=train_data, ax=plt.subplot(322));\n    # X-axis Label\n    plt.xlabel('Survived or Not Survived?', fontsize=14);\n    # Y-axis Label\n    plt.ylabel(column, fontsize=14);\n\n    ### Number of occurrences per categoty - target pair\n    ax = sns.countplot(x=column, hue=\"target_name\", data=train_data, ax = plt.subplot(312));\n    # X-axis Label\n    plt.xlabel(column, fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Number of occurrences', fontsize=14);\n    # Setting Legend location \n    plt.legend(loc=1);\n\n    ### Adding percents over bars\n    # Getting heights of our bars\n    height = [p.get_height() if p.get_height()==p.get_height() else 0 for p in ax.patches]\n    # Counting number of bar groups \n    ncol = int(len(height)/2)\n    # Counting total height of groups\n    total = [height[i] + height[i + ncol] for i in range(ncol)] * 2\n    # Looping through bars\n    for i, p in enumerate(ax.patches):    \n        # Adding percentages   \n        ax.text(p.get_x()+p.get_width()/2, height[i]*1.01 + 10,\n                '{:1.0%}'.format(height[i]/total[i]), ha=\"center\", size=14) \n\n    ### Survived percentage for every value of feature\n    sns.pointplot(x=column, y='Survived', data=train_data, ax = plt.subplot(313));\n    # X-axis Label\n    plt.xlabel(column, fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Survived Percentage', fontsize=14);\n    # Printing Chart\n    plt.show() \n ### Plotting Categorical Features\n# Looping through and Plotting Categorical features\nfor column in nominal_features:\n    # Figure initiation\n    fig = plt.figure(figsize=(18,12))\n    \n    ### Number of occurrences per categoty - target pair\n    ax = sns.countplot(x=column, hue=\"target_name\", data=train_data, ax = plt.subplot(211));\n    # X-axis Label\n    plt.xlabel(column, fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Number of occurrences', fontsize=14);\n    # Adding Super Title (One for a whole figure)\n    plt.suptitle('Plots for '+column, fontsize=18);\n    # Setting Legend location \n    plt.legend(loc=1);\n    \n    ### Adding percents over bars\n    # Getting heights of our bars\n    height = [p.get_height() for p in ax.patches]\n    # Counting number of bar groups \n    ncol = int(len(height)/2)\n    # Counting total height of groups\n    total = [height[i] + height[i + ncol] for i in range(ncol)] * 2\n    # Looping through bars\n    for i, p in enumerate(ax.patches):    \n        # Adding percentages\n        ax.text(p.get_x()+p.get_width()/2, height[i]*1.01 + 10,\n                '{:1.0%}'.format(height[i]/total[i]), ha=\"center\", size=14) \n\n    \n    ### Survived percentage for every value of feature\n    sns.pointplot(x=column, y='Survived', data=train_data, ax = plt.subplot(212));\n    # X-axis Label\n    plt.xlabel(column, fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Survived Percentage', fontsize=14);\n    # Printing Chart\n    plt.show()",
+    "markdown_source": "# Data Exploration Starter\n## Data Exploration Titanic: Machine Learning from Disaster\n## Sergei Neviadomski \n First thing I want to mention is that this notebook is intended to provide first glance on data and variables. You won't find here any analysis of features interrelation or feature engineering. I intentionally provide only charts that show feature related information (distribution, bar plots and etc) and feature - label relationship.\n\nI appreciate any constructive criticism and hope my notebook will help you understand data little bit more.\n\nPlease upvote if you think my notebook deserves it.\n\nThanks.\n\nP.S. I think the best way to use my notebook is to quickly read through it and then come back as soon as you need additional information related to any feature. \n ### Target Exploration \n ### Corralation between features (variables) \n ### Numeric Features Exploration \n ### Categorical (Ordinal) Features Exploration \n ### Categorical (Nominal) Features Exploration \n ### Please upvote if my notebook helped you in any way :)",
+    "n_cells": 18,
+    "n_code_cells": 10,
+    "n_markdown_cells": 8,
+    "n_raw_cells": 0,
+    "n_outputs": 10,
+    "r_code_cells": 0.5555555555555556,
+    "r_markdown_cells": 0.4444444444444444,
+    "r_raw_cells": 0.0,
+    "r_outputs": 1.0,
+    "n_exceptions": 0,
+    "r_exceptions": 0.0,
+    "n_lines": 187,
+    "n_lines_code": 169,
+    "n_lines_markdown": 18,
+    "lines_per_cell": [
+        3,
+        9,
+        8,
+        4,
+        2,
+        6,
+        2,
+        1,
+        5,
+        1,
+        7,
+        1,
+        44,
+        1,
+        52,
+        1,
+        39,
+        1
+    ],
+    "lines_per_code_cell": [
+        8,
+        4,
+        2,
+        6,
+        2,
+        5,
+        7,
+        44,
+        52,
+        39
+    ],
+    "lines_per_markdown_cell": [
+        3,
+        9,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+    ],
+    "ave_lines_per_cell": 10.38888888888889,
+    "ave_lines_per_code_cell": 16.9,
+    "ave_lines_per_markdown_cell": 2.25,
+    "max_lines_per_cell": 52,
+    "max_lines_per_code_cell": 52,
+    "max_lines_per_markdown_cell": 9,
+    "min_lines_per_cell": 1,
+    "min_lines_per_code_cell": 2,
+    "min_lines_per_markdown_cell": 1,
+    "n_chars": 7460,
+    "n_chars_code": 6437,
+    "n_chars_markdown": 1023,
+    "chars_per_cell": [
+        108,
+        668,
+        162,
+        144,
+        80,
+        226,
+        140,
+        22,
+        143,
+        44,
+        323,
+        32,
+        1696,
+        46,
+        2061,
+        46,
+        1462,
+        57
+    ],
+    "chars_per_code_cell": [
+        162,
+        144,
+        80,
+        226,
+        140,
+        143,
+        323,
+        1696,
+        2061,
+        1462
+    ],
+    "chars_per_markdown_cell": [
+        108,
+        668,
+        22,
+        44,
+        32,
+        46,
+        46,
+        57
+    ],
+    "ave_chars_per_line": 39.893048128342244,
+    "ave_chars_per_cell": 414.44444444444446,
+    "ave_chars_per_code_cell": 643.7,
+    "ave_chars_per_markdown_cell": 127.875,
+    "max_chars_per_cell": 2061,
+    "max_chars_per_code_cell": 2061,
+    "max_chars_per_markdownell": 668,
+    "min_chars_per_cell": 22,
+    "min_chars_per_code_cell": 80,
+    "min_chars_per_markdown_cell": 22,
+    "r_lines_code": 0.9037433155080213,
+    "r_lines_markdown": 0.0962566844919786,
+    "r_chars_markdown": 0.1371313672922252,
+    "r_chars_code": 0.8628686327077748,
+    "all_cells": [
+        {
+            "source": "# Data Exploration Starter\n## Data Exploration Titanic: Machine Learning from Disaster\n## Sergei Neviadomski",
+            "mc_idx": 0,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "First thing I want to mention is that this notebook is intended to provide first glance on data and variables. You won't find here any analysis of features interrelation or feature engineering. I intentionally provide only charts that show feature related information (distribution, bar plots and etc) and feature - label relationship.\n\nI appreciate any constructive criticism and hope my notebook will help you understand data little bit more.\n\nPlease upvote if you think my notebook deserves it.\n\nThanks.\n\nP.S. I think the best way to use my notebook is to quickly read through it and then come back as soon as you need additional information related to any feature.",
+            "mc_idx": 1,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "### Necessary libraries\nimport pandas as pd\nimport numpy as np\nimport matplotlib.pyplot as plt\nimport seaborn as sns\n\n### Seaborn style\nsns.set_style(\"whitegrid\")",
+            "mc_idx": 2,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.04878048780487805,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.07317073170731707,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "import ": 4
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "matplotlib": 1,
+                    "sns.": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "sns.": 1,
+                    "matplotlib": 1,
+                    "pyplot": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    0,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 2,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 0,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "### Let's import our data\ntrain_data = pd.read_csv('../input/train.csv',index_col='PassengerId')\n### and test if everything OK\ntrain_data.head()",
+            "mc_idx": 3,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.4,
+                "Exploratory_Data_Analysis": 0.3,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "import ": 10
+                },
+                "Data_Extraction": {
+                    "read_csv": 2,
+                    "pd.read_": 2
+                },
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    1,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "             Survived  Pclass  \\\nPassengerId                     \n1                   0       3   \n2                   1       1   \n3                   1       3   \n4                   1       1   \n5                   0       3   \n\n                                                          Name     Sex   Age  \\\nPassengerId                                                                    \n1                                      Braund, Mr. Owen Harris    male  22.0   \n2            Cumings, Mrs. John Bradley (Florence Briggs Th...  female  38.0   \n3                                       Heikkinen, Miss. Laina  female  26.0   \n4                 Futrelle, Mrs. Jacques Heath (Lily May Peel)  female  35.0   \n5                                     Allen, Mr. William Henry    male  35.0   \n\n             SibSp  Parch            Ticket     Fare Cabin Embarked  \nPassengerId                                                          \n1                1      0         A/5 21171   7.2500   NaN        S  \n2                1      0          PC 17599  71.2833   C85        C  \n3                0      0  STON/O2. 3101282   7.9250   NaN        S  \n4                1      0            113803  53.1000  C123        S  \n5                0      0            373450   8.0500   NaN        S  "
+                    ]
+                },
+                "mc_idx": 3,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 1,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "### ... check for NAs in sense Pandas understands them\ntrain_data.isnull().sum()",
+            "mc_idx": 4,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".isnull": 1,
+                    ".sum": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    2,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "Survived      0\nPclass        0\nName          0\nSex           0\nAge         177\nSibSp         0\nParch         0\nTicket        0\nFare          0\nCabin       687\nEmbarked      2\ndtype: int64"
+                    ]
+                },
+                "mc_idx": 4,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 2,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "### Now let's prepare lists of numeric and categorical columns\n# Numeric Features\nnumeric_features = ['Age', 'Fare']\n# Categorical Features\nordinal_features = ['Pclass', 'SibSp', 'Parch']\nnominal_features = ['Sex', 'Embarked']",
+            "mc_idx": 5,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "columns": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    3,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 5,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 3,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "### Adding new column with beautiful target names\ntrain_data['target_name'] = train_data['Survived'].map({0: 'Not Survived', 1: 'Survived'})",
+            "mc_idx": 6,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Data_Transform",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 1.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {
+                    ".map(": 1,
+                    ".map": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    4,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 6,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 4,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "### Target Exploration",
+            "mc_idx": 7,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "### Target variable exploration\nsns.countplot(train_data.target_name);\nplt.xlabel('Survived?');\nplt.ylabel('Number of occurrences');\nplt.show()",
+            "mc_idx": 8,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.5,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.5,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    ".show": 1,
+                    "variable": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "sns.": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "sns.": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/outp/images/d0050_c005_o000_image_0.png",
+                    5,
+                    0,
+                    0
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "<matplotlib.figure.Figure at 0x7fea5aa62320>"
+                    ]
+                },
+                "mc_idx": 8,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 5,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "### Corralation between features (variables)",
+            "mc_idx": 9,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "### Corralation matrix heatmap\n# Getting correlation matrix\ncor_matrix = train_data[numeric_features + ordinal_features].corr().round(2)\n# Plotting heatmap \nfig = plt.figure(figsize=(12,12));\nsns.heatmap(cor_matrix, annot=True, center=0, cmap = sns.diverging_palette(250, 10, as_cmap=True), ax=plt.subplot(111));\nplt.show()",
+            "mc_idx": 10,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.14285714285714285,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.14285714285714285,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.5714285714285714,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    ".show": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".corr": 2,
+                    "sns.heatmap": 1,
+                    ".heatmap(": 1,
+                    "sns.": 2,
+                    "size": 1
+                },
+                "Data_Transform": {
+                    ".round": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "sns.heatmap": 1,
+                    ".heatmap(": 1,
+                    "sns.": 2
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/outp/images/d0050_c006_o000_image_1.png",
+                    6,
+                    0,
+                    1
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "<matplotlib.figure.Figure at 0x7fe9f595b898>"
+                    ]
+                },
+                "mc_idx": 10,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 6,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "### Numeric Features Exploration",
+            "mc_idx": 11,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "### Plotting Numeric Features\n# Looping through and Plotting Numeric features\nfor column in numeric_features:    \n    # Figure initiation\n    fig = plt.figure(figsize=(18,12))\n    \n    ### Distribution plot\n    sns.distplot(train_data[column].dropna(), ax=plt.subplot(221));\n    # X-axis Label\n    plt.xlabel(column, fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Density', fontsize=14);\n    # Adding Super Title (One for a whole figure)\n    plt.suptitle('Plots for '+column, fontsize=18);\n    \n    ### Distribution per Survived / Not Survived Value\n    # Not Survived hist\n    sns.distplot(train_data.loc[train_data.Survived==0, column].dropna(),\n                 color='red', label='Not Survived', ax=plt.subplot(222));\n    # Survived hist\n    sns.distplot(train_data.loc[train_data.Survived==1, column].dropna(),\n                 color='blue', label='Survived', ax=plt.subplot(222));\n    # Adding Legend\n    plt.legend(loc='best')\n    # X-axis Label\n    plt.xlabel(column, fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Density per Survived / Not Survived Value', fontsize=14);\n    \n    ### Average Column value per Survived / Not Survived Value\n    sns.barplot(x=\"target_name\", y=column, data=train_data, ax=plt.subplot(223));\n    # X-axis Label\n    plt.xlabel('Survived or Not Survived?', fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Average ' + column, fontsize=14);\n    \n    ### Boxplot of Column per Survived / Not Survived Value\n    sns.boxplot(x=\"target_name\", y=column, data=train_data, ax=plt.subplot(224));\n    # X-axis Label\n    plt.xlabel('Survived or Not Survived?', fontsize=14);\n    # Y-axis Label\n    plt.ylabel(column, fontsize=14);\n    # Printing Chart\n    plt.show()",
+            "mc_idx": 12,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.05,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.45,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.35,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    ".show": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".boxplot(": 2,
+                    "distplot": 3,
+                    "sns.": 5,
+                    "size": 10
+                },
+                "Data_Transform": {
+                    ".dropna(": 3,
+                    ".drop": 3,
+                    ".dropna": 3
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    ".boxplot(": 1,
+                    "sns.": 5,
+                    "chart": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/outp/images/d0050_c007_o002_image_3.png",
+                    7,
+                    2,
+                    3
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "/opt/conda/lib/python3.6/site-packages/matplotlib/cbook/deprecation.py:106: MatplotlibDeprecationWarning: Adding an axes using the same arguments as a previous axes currently reuses the earlier instance.  In a future version, a new instance will always be created and returned.  Meanwhile, this warning can be suppressed, and the future behavior ensured, by passing a unique label to each axes instance.\n  warnings.warn(message, mplDeprecation, stacklevel=1)\n",
+                        "<matplotlib.figure.Figure at 0x7fe9f5545128>",
+                        "<matplotlib.figure.Figure at 0x7fe9f5705470>"
+                    ]
+                },
+                "mc_idx": 12,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 7,
+                "o_idx": 2
+            }
+        },
+        {
+            "source": "### Categorical (Ordinal) Features Exploration",
+            "mc_idx": 13,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "### Plotting Categorical Features\n# Looping through and Plotting Categorical features\nfor column in ordinal_features:\n    # Figure initiation\n    fig = plt.figure(figsize=(18,18))\n\n    ### Average Column value per Survived / Not Survived Value\n    sns.barplot(x=\"target_name\", y=column, data=train_data, ax=plt.subplot(321));\n    # X-axis Label\n    plt.xlabel('Survived or Not Survived?', fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Average ' + column, fontsize=14);\n    # Adding Super Title (One for a whole figure)\n    plt.suptitle('Plots for '+column, fontsize=18);\n\n    ### Boxplot of Column per Survived / Not Survived Value\n    sns.boxplot(x=\"target_name\", y=column, data=train_data, ax=plt.subplot(322));\n    # X-axis Label\n    plt.xlabel('Survived or Not Survived?', fontsize=14);\n    # Y-axis Label\n    plt.ylabel(column, fontsize=14);\n\n    ### Number of occurrences per categoty - target pair\n    ax = sns.countplot(x=column, hue=\"target_name\", data=train_data, ax = plt.subplot(312));\n    # X-axis Label\n    plt.xlabel(column, fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Number of occurrences', fontsize=14);\n    # Setting Legend location \n    plt.legend(loc=1);\n\n    ### Adding percents over bars\n    # Getting heights of our bars\n    height = [p.get_height() if p.get_height()==p.get_height() else 0 for p in ax.patches]\n    # Counting number of bar groups \n    ncol = int(len(height)/2)\n    # Counting total height of groups\n    total = [height[i] + height[i + ncol] for i in range(ncol)] * 2\n    # Looping through bars\n    for i, p in enumerate(ax.patches):    \n        # Adding percentages   \n        ax.text(p.get_x()+p.get_width()/2, height[i]*1.01 + 10,\n                '{:1.0%}'.format(height[i]/total[i]), ha=\"center\", size=14) \n\n    ### Survived percentage for every value of feature\n    sns.pointplot(x=column, y='Survived', data=train_data, ax = plt.subplot(313));\n    # X-axis Label\n    plt.xlabel(column, fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Survived Percentage', fontsize=14);\n    # Printing Chart\n    plt.show()",
+            "mc_idx": 14,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.058823529411764705,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.35294117647058826,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    ".show": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".boxplot(": 2,
+                    "sns.": 4,
+                    "size": 11
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    ".boxplot(": 1,
+                    "sns.": 4,
+                    "chart": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/outp/images/d0050_c008_o002_image_6.png",
+                    8,
+                    2,
+                    6
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "<matplotlib.figure.Figure at 0x7fe9f5823940>",
+                        "<matplotlib.figure.Figure at 0x7fe9f588bb70>",
+                        "<matplotlib.figure.Figure at 0x7fe9f5785470>"
+                    ]
+                },
+                "mc_idx": 14,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 8,
+                "o_idx": 2
+            }
+        },
+        {
+            "source": "### Categorical (Nominal) Features Exploration",
+            "mc_idx": 15,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "### Plotting Categorical Features\n# Looping through and Plotting Categorical features\nfor column in nominal_features:\n    # Figure initiation\n    fig = plt.figure(figsize=(18,12))\n    \n    ### Number of occurrences per categoty - target pair\n    ax = sns.countplot(x=column, hue=\"target_name\", data=train_data, ax = plt.subplot(211));\n    # X-axis Label\n    plt.xlabel(column, fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Number of occurrences', fontsize=14);\n    # Adding Super Title (One for a whole figure)\n    plt.suptitle('Plots for '+column, fontsize=18);\n    # Setting Legend location \n    plt.legend(loc=1);\n    \n    ### Adding percents over bars\n    # Getting heights of our bars\n    height = [p.get_height() for p in ax.patches]\n    # Counting number of bar groups \n    ncol = int(len(height)/2)\n    # Counting total height of groups\n    total = [height[i] + height[i + ncol] for i in range(ncol)] * 2\n    # Looping through bars\n    for i, p in enumerate(ax.patches):    \n        # Adding percentages\n        ax.text(p.get_x()+p.get_width()/2, height[i]*1.01 + 10,\n                '{:1.0%}'.format(height[i]/total[i]), ha=\"center\", size=14) \n\n    \n    ### Survived percentage for every value of feature\n    sns.pointplot(x=column, y='Survived', data=train_data, ax = plt.subplot(212));\n    # X-axis Label\n    plt.xlabel(column, fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Survived Percentage', fontsize=14);\n    # Printing Chart\n    plt.show()",
+            "mc_idx": 16,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.1111111111111111,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.3333333333333333,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    ".show": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "sns.": 2,
+                    "size": 7
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "sns.": 2,
+                    "chart": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/outp/images/d0050_c009_o001_image_8.png",
+                    9,
+                    1,
+                    8
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "<matplotlib.figure.Figure at 0x7fe9f580cf98>",
+                        "<matplotlib.figure.Figure at 0x7fe9f43bea20>"
+                    ]
+                },
+                "mc_idx": 16,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 9,
+                "o_idx": 1
+            }
+        },
+        {
+            "source": "### Please upvote if my notebook helped you in any way :)",
+            "mc_idx": 17,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        }
+    ],
+    "code_cells": [
+        {
+            "source": "### Necessary libraries\nimport pandas as pd\nimport numpy as np\nimport matplotlib.pyplot as plt\nimport seaborn as sns\n\n### Seaborn style\nsns.set_style(\"whitegrid\")",
+            "mc_idx": 2,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.04878048780487805,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.07317073170731707,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "import ": 4
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "matplotlib": 1,
+                    "sns.": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "sns.": 1,
+                    "matplotlib": 1,
+                    "pyplot": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    0,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 2,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 0,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "### Let's import our data\ntrain_data = pd.read_csv('../input/train.csv',index_col='PassengerId')\n### and test if everything OK\ntrain_data.head()",
+            "mc_idx": 3,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.4,
+                "Exploratory_Data_Analysis": 0.3,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    "import ": 10
+                },
+                "Data_Extraction": {
+                    "read_csv": 2,
+                    "pd.read_": 2
+                },
+                "Exploratory_Data_Analysis": {
+                    ".head(": 1,
+                    "head": 1,
+                    ".head": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    1,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "             Survived  Pclass  \\\nPassengerId                     \n1                   0       3   \n2                   1       1   \n3                   1       3   \n4                   1       1   \n5                   0       3   \n\n                                                          Name     Sex   Age  \\\nPassengerId                                                                    \n1                                      Braund, Mr. Owen Harris    male  22.0   \n2            Cumings, Mrs. John Bradley (Florence Briggs Th...  female  38.0   \n3                                       Heikkinen, Miss. Laina  female  26.0   \n4                 Futrelle, Mrs. Jacques Heath (Lily May Peel)  female  35.0   \n5                                     Allen, Mr. William Henry    male  35.0   \n\n             SibSp  Parch            Ticket     Fare Cabin Embarked  \nPassengerId                                                          \n1                1      0         A/5 21171   7.2500   NaN        S  \n2                1      0          PC 17599  71.2833   C85        C  \n3                0      0  STON/O2. 3101282   7.9250   NaN        S  \n4                1      0            113803  53.1000  C123        S  \n5                0      0            373450   8.0500   NaN        S  "
+                    ]
+                },
+                "mc_idx": 3,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 1,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "### ... check for NAs in sense Pandas understands them\ntrain_data.isnull().sum()",
+            "mc_idx": 4,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".isnull": 1,
+                    ".sum": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    2,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "Survived      0\nPclass        0\nName          0\nSex           0\nAge         177\nSibSp         0\nParch         0\nTicket        0\nFare          0\nCabin       687\nEmbarked      2\ndtype: int64"
+                    ]
+                },
+                "mc_idx": 4,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 2,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "### Now let's prepare lists of numeric and categorical columns\n# Numeric Features\nnumeric_features = ['Age', 'Fare']\n# Categorical Features\nordinal_features = ['Pclass', 'SibSp', 'Parch']\nnominal_features = ['Sex', 'Embarked']",
+            "mc_idx": 5,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "columns": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    3,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 5,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 3,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "### Adding new column with beautiful target names\ntrain_data['target_name'] = train_data['Survived'].map({0: 'Not Survived', 1: 'Survived'})",
+            "mc_idx": 6,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Data_Transform",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.0,
+                "Data_Transform": 1.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.0,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {},
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {},
+                "Data_Transform": {
+                    ".map(": 1,
+                    ".map": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {},
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    null,
+                    4,
+                    0,
+                    null
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": []
+                },
+                "mc_idx": 6,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 4,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "### Target variable exploration\nsns.countplot(train_data.target_name);\nplt.xlabel('Survived?');\nplt.ylabel('Number of occurrences');\nplt.show()",
+            "mc_idx": 8,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Environment",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 1.0,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 0.5,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.5,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    ".show": 1,
+                    "variable": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "sns.": 1
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "sns.": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/outp/images/d0050_c005_o000_image_0.png",
+                    5,
+                    0,
+                    0
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "<matplotlib.figure.Figure at 0x7fea5aa62320>"
+                    ]
+                },
+                "mc_idx": 8,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 5,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "### Corralation matrix heatmap\n# Getting correlation matrix\ncor_matrix = train_data[numeric_features + ordinal_features].corr().round(2)\n# Plotting heatmap \nfig = plt.figure(figsize=(12,12));\nsns.heatmap(cor_matrix, annot=True, center=0, cmap = sns.diverging_palette(250, 10, as_cmap=True), ax=plt.subplot(111));\nplt.show()",
+            "mc_idx": 10,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.14285714285714285,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.14285714285714285,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.5714285714285714,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    ".show": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".corr": 2,
+                    "sns.heatmap": 1,
+                    ".heatmap(": 1,
+                    "sns.": 2,
+                    "size": 1
+                },
+                "Data_Transform": {
+                    ".round": 1
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "sns.heatmap": 1,
+                    ".heatmap(": 1,
+                    "sns.": 2
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/outp/images/d0050_c006_o000_image_1.png",
+                    6,
+                    0,
+                    1
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "<matplotlib.figure.Figure at 0x7fe9f595b898>"
+                    ]
+                },
+                "mc_idx": 10,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 6,
+                "o_idx": 0
+            }
+        },
+        {
+            "source": "### Plotting Numeric Features\n# Looping through and Plotting Numeric features\nfor column in numeric_features:    \n    # Figure initiation\n    fig = plt.figure(figsize=(18,12))\n    \n    ### Distribution plot\n    sns.distplot(train_data[column].dropna(), ax=plt.subplot(221));\n    # X-axis Label\n    plt.xlabel(column, fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Density', fontsize=14);\n    # Adding Super Title (One for a whole figure)\n    plt.suptitle('Plots for '+column, fontsize=18);\n    \n    ### Distribution per Survived / Not Survived Value\n    # Not Survived hist\n    sns.distplot(train_data.loc[train_data.Survived==0, column].dropna(),\n                 color='red', label='Not Survived', ax=plt.subplot(222));\n    # Survived hist\n    sns.distplot(train_data.loc[train_data.Survived==1, column].dropna(),\n                 color='blue', label='Survived', ax=plt.subplot(222));\n    # Adding Legend\n    plt.legend(loc='best')\n    # X-axis Label\n    plt.xlabel(column, fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Density per Survived / Not Survived Value', fontsize=14);\n    \n    ### Average Column value per Survived / Not Survived Value\n    sns.barplot(x=\"target_name\", y=column, data=train_data, ax=plt.subplot(223));\n    # X-axis Label\n    plt.xlabel('Survived or Not Survived?', fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Average ' + column, fontsize=14);\n    \n    ### Boxplot of Column per Survived / Not Survived Value\n    sns.boxplot(x=\"target_name\", y=column, data=train_data, ax=plt.subplot(224));\n    # X-axis Label\n    plt.xlabel('Survived or Not Survived?', fontsize=14);\n    # Y-axis Label\n    plt.ylabel(column, fontsize=14);\n    # Printing Chart\n    plt.show()",
+            "mc_idx": 12,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.05,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.45,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.35,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    ".show": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".boxplot(": 2,
+                    "distplot": 3,
+                    "sns.": 5,
+                    "size": 10
+                },
+                "Data_Transform": {
+                    ".dropna(": 3,
+                    ".drop": 3,
+                    ".dropna": 3
+                },
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    ".boxplot(": 1,
+                    "sns.": 5,
+                    "chart": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/outp/images/d0050_c007_o002_image_3.png",
+                    7,
+                    2,
+                    3
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "/opt/conda/lib/python3.6/site-packages/matplotlib/cbook/deprecation.py:106: MatplotlibDeprecationWarning: Adding an axes using the same arguments as a previous axes currently reuses the earlier instance.  In a future version, a new instance will always be created and returned.  Meanwhile, this warning can be suppressed, and the future behavior ensured, by passing a unique label to each axes instance.\n  warnings.warn(message, mplDeprecation, stacklevel=1)\n",
+                        "<matplotlib.figure.Figure at 0x7fe9f5545128>",
+                        "<matplotlib.figure.Figure at 0x7fe9f5705470>"
+                    ]
+                },
+                "mc_idx": 12,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 7,
+                "o_idx": 2
+            }
+        },
+        {
+            "source": "### Plotting Categorical Features\n# Looping through and Plotting Categorical features\nfor column in ordinal_features:\n    # Figure initiation\n    fig = plt.figure(figsize=(18,18))\n\n    ### Average Column value per Survived / Not Survived Value\n    sns.barplot(x=\"target_name\", y=column, data=train_data, ax=plt.subplot(321));\n    # X-axis Label\n    plt.xlabel('Survived or Not Survived?', fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Average ' + column, fontsize=14);\n    # Adding Super Title (One for a whole figure)\n    plt.suptitle('Plots for '+column, fontsize=18);\n\n    ### Boxplot of Column per Survived / Not Survived Value\n    sns.boxplot(x=\"target_name\", y=column, data=train_data, ax=plt.subplot(322));\n    # X-axis Label\n    plt.xlabel('Survived or Not Survived?', fontsize=14);\n    # Y-axis Label\n    plt.ylabel(column, fontsize=14);\n\n    ### Number of occurrences per categoty - target pair\n    ax = sns.countplot(x=column, hue=\"target_name\", data=train_data, ax = plt.subplot(312));\n    # X-axis Label\n    plt.xlabel(column, fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Number of occurrences', fontsize=14);\n    # Setting Legend location \n    plt.legend(loc=1);\n\n    ### Adding percents over bars\n    # Getting heights of our bars\n    height = [p.get_height() if p.get_height()==p.get_height() else 0 for p in ax.patches]\n    # Counting number of bar groups \n    ncol = int(len(height)/2)\n    # Counting total height of groups\n    total = [height[i] + height[i + ncol] for i in range(ncol)] * 2\n    # Looping through bars\n    for i, p in enumerate(ax.patches):    \n        # Adding percentages   \n        ax.text(p.get_x()+p.get_width()/2, height[i]*1.01 + 10,\n                '{:1.0%}'.format(height[i]/total[i]), ha=\"center\", size=14) \n\n    ### Survived percentage for every value of feature\n    sns.pointplot(x=column, y='Survived', data=train_data, ax = plt.subplot(313));\n    # X-axis Label\n    plt.xlabel(column, fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Survived Percentage', fontsize=14);\n    # Printing Chart\n    plt.show()",
+            "mc_idx": 14,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.058823529411764705,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.35294117647058826,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    ".show": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    ".boxplot(": 2,
+                    "sns.": 4,
+                    "size": 11
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    ".boxplot(": 1,
+                    "sns.": 4,
+                    "chart": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/outp/images/d0050_c008_o002_image_6.png",
+                    8,
+                    2,
+                    6
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "<matplotlib.figure.Figure at 0x7fe9f5823940>",
+                        "<matplotlib.figure.Figure at 0x7fe9f588bb70>",
+                        "<matplotlib.figure.Figure at 0x7fe9f5785470>"
+                    ]
+                },
+                "mc_idx": 14,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 8,
+                "o_idx": 2
+            }
+        },
+        {
+            "source": "### Plotting Categorical Features\n# Looping through and Plotting Categorical features\nfor column in nominal_features:\n    # Figure initiation\n    fig = plt.figure(figsize=(18,12))\n    \n    ### Number of occurrences per categoty - target pair\n    ax = sns.countplot(x=column, hue=\"target_name\", data=train_data, ax = plt.subplot(211));\n    # X-axis Label\n    plt.xlabel(column, fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Number of occurrences', fontsize=14);\n    # Adding Super Title (One for a whole figure)\n    plt.suptitle('Plots for '+column, fontsize=18);\n    # Setting Legend location \n    plt.legend(loc=1);\n    \n    ### Adding percents over bars\n    # Getting heights of our bars\n    height = [p.get_height() for p in ax.patches]\n    # Counting number of bar groups \n    ncol = int(len(height)/2)\n    # Counting total height of groups\n    total = [height[i] + height[i + ncol] for i in range(ncol)] * 2\n    # Looping through bars\n    for i, p in enumerate(ax.patches):    \n        # Adding percentages\n        ax.text(p.get_x()+p.get_width()/2, height[i]*1.01 + 10,\n                '{:1.0%}'.format(height[i]/total[i]), ha=\"center\", size=14) \n\n    \n    ### Survived percentage for every value of feature\n    sns.pointplot(x=column, y='Survived', data=train_data, ax = plt.subplot(212));\n    # X-axis Label\n    plt.xlabel(column, fontsize=14);\n    # Y-axis Label\n    plt.ylabel('Survived Percentage', fontsize=14);\n    # Printing Chart\n    plt.show()",
+            "mc_idx": 16,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Exploratory_Data_Analysis",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0.1111111111111111,
+                "Data_Extraction": 0.0,
+                "Exploratory_Data_Analysis": 1.0,
+                "Data_Transform": 0.0,
+                "Model_Train": 0.0,
+                "Model_Evaluation": 0.0,
+                "Model_Interpretation": 0.0,
+                "Hyperparameter_Tuning": 0.0,
+                "Visualization": 0.3333333333333333,
+                "Debug": 0.0,
+                "Data_Export": 0.0,
+                "Other": 0.0
+            },
+            "detailed_scores": {
+                "Environment": {
+                    ".show": 1
+                },
+                "Data_Extraction": {},
+                "Exploratory_Data_Analysis": {
+                    "sns.": 2,
+                    "size": 7
+                },
+                "Data_Transform": {},
+                "Model_Train": {},
+                "Model_Evaluation": {},
+                "Model_Interpretation": {},
+                "Hyperparameter_Tuning": {},
+                "Visualization": {
+                    "sns.": 2,
+                    "chart": 1
+                },
+                "Debug": {},
+                "Data_Export": {},
+                "Other": {}
+            },
+            "emb": 0,
+            "cell_type": "code",
+            "image_path": [
+                [
+                    "data/data_Kaggle/outp/images/d0050_c009_o001_image_8.png",
+                    9,
+                    1,
+                    8
+                ]
+            ],
+            "output": {
+                "source": {
+                    "source": [
+                        "<matplotlib.figure.Figure at 0x7fe9f580cf98>",
+                        "<matplotlib.figure.Figure at 0x7fe9f43bea20>"
+                    ]
+                },
+                "mc_idx": 16,
+                "nb_idx": 0,
+                "embedding": {},
+                "classification": null,
+                "keywords": {},
+                "summary": null,
+                "q_number": null,
+                "duration": null,
+                "exception": null,
+                "class_probability": {},
+                "detailed_scores": {},
+                "emb": 0,
+                "cell_type": "output",
+                "c_idx": 9,
+                "o_idx": 1
+            }
+        }
+    ],
+    "markdown_cells": [
+        {
+            "source": "# Data Exploration Starter\n## Data Exploration Titanic: Machine Learning from Disaster\n## Sergei Neviadomski",
+            "mc_idx": 0,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "First thing I want to mention is that this notebook is intended to provide first glance on data and variables. You won't find here any analysis of features interrelation or feature engineering. I intentionally provide only charts that show feature related information (distribution, bar plots and etc) and feature - label relationship.\n\nI appreciate any constructive criticism and hope my notebook will help you understand data little bit more.\n\nPlease upvote if you think my notebook deserves it.\n\nThanks.\n\nP.S. I think the best way to use my notebook is to quickly read through it and then come back as soon as you need additional information related to any feature.",
+            "mc_idx": 1,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "### Target Exploration",
+            "mc_idx": 7,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "### Corralation between features (variables)",
+            "mc_idx": 9,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "### Numeric Features Exploration",
+            "mc_idx": 11,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "### Categorical (Ordinal) Features Exploration",
+            "mc_idx": 13,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "### Categorical (Nominal) Features Exploration",
+            "mc_idx": 15,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        },
+        {
+            "source": "### Please upvote if my notebook helped you in any way :)",
+            "mc_idx": 17,
+            "nb_idx": 50,
+            "embedding": {},
+            "classification": "Markdown",
+            "keywords": {},
+            "summary": null,
+            "q_number": null,
+            "duration": null,
+            "exception": null,
+            "class_probability": {
+                "Environment": 0,
+                "Data_Extraction": 0,
+                "Exploratory_Data_Analysis": 0,
+                "Data_Transform": 0,
+                "Model_Train": 0,
+                "Model_Evaluation": 0,
+                "Model_Interpretation": 0,
+                "Hyperparameter_Tuning": 0,
+                "Visualization": 0,
+                "Debug": 0,
+                "Data_Export": 0,
+                "Other": 0
+            },
+            "detailed_scores": [
+                {
+                    "Environment": [],
+                    "Data_Extraction": [],
+                    "Exploratory_Data_Analysis": [],
+                    "Data_Transform": [],
+                    "Model_Train": [],
+                    "Model_Evaluation": [],
+                    "Model_Interpretation": [],
+                    "Hyperparameter_Tuning": [],
+                    "Visualization": [],
+                    "Debug": [],
+                    "Data_Export": [],
+                    "Other": []
+                }
+            ],
+            "emb": 0,
+            "cell_type": "markdown"
+        }
+    ],
+    "sim_matrix": [
+        0.9548736810684204,
+        0.9283631443977356,
+        0.9414138793945312,
+        0.9553965330123901,
+        0.9142118692398071,
+        0.9255506992340088,
+        0.9561730027198792,
+        0.9595844149589539,
+        0.9404542446136475,
+        0.9381974935531616,
+        0.940939724445343,
+        0.9319858551025391,
+        0.9478580355644226,
+        0.9322835206985474,
+        0.9585564732551575,
+        0.9382736086845398,
+        0.9522137641906738,
+        0.9255506992340088,
+        0.9561446905136108,
+        0.9310282468795776,
+        0.9504615664482117,
+        0.9595844149589539,
+        0.9565956592559814,
+        0.9644611477851868,
+        0.9222552180290222,
+        0.9326562881469727,
+        0.9440515041351318,
+        0.9624172449111938,
+        0.9538041353225708,
+        0.8763294219970703,
+        0.9598437547683716,
+        0.9354188442230225,
+        0.9544606804847717,
+        0.9260611534118652,
+        0.956175684928894,
+        0.9311182498931885,
+        0.956175684928894,
+        0.9604440927505493,
+        0.9559757709503174,
+        0.8838663697242737,
+        0.9008957147598267,
+        0.9476828575134277,
+        0.9034322500228882,
+        0.9504615664482117,
+        0.9621445536613464,
+        0.9644611477851868,
+        0.9516834616661072,
+        0.9544606804847717,
+        0.9516251087188721,
+        0.9617531895637512,
+        1.0000001192092896,
+        0.9311182498931885,
+        0.9382736086845398,
+        0.9571596384048462,
+        0.9240638613700867,
+        0.9580088257789612,
+        0.9092702269554138,
+        0.9553825855255127,
+        0.9516575932502747,
+        0.9497013688087463,
+        0.9448029398918152,
+        0.9608161449432373,
+        0.9310462474822998,
+        0.9248104691505432,
+        0.9309043884277344,
+        0.9388201236724854,
+        0.9110773205757141,
+        0.778743326663971,
+        0.9565616846084595,
+        0.9555965662002563,
+        0.9658430814743042,
+        0.9466630816459656,
+        0.9630823135375977,
+        0.9312671422958374,
+        0.9532900452613831,
+        0.9439391493797302,
+        0.9571790099143982,
+        0.9568882584571838,
+        0.9431955814361572,
+        0.9314823150634766,
+        0.9528000354766846,
+        0.9514732360839844,
+        0.9559421539306641,
+        0.9644331336021423,
+        0.9324216246604919,
+        0.9575582146644592,
+        0.9531028866767883,
+        0.9565956592559814,
+        0.9439389705657959,
+        0.9209079742431641,
+        0.9604440927505493,
+        0.9310282468795776,
+        0.9260611534118652,
+        0.9521209001541138,
+        0.9542279839515686,
+        0.9028944969177246,
+        0.9479869604110718,
+        0.9547773003578186
+    ],
+    "cell_sim_matrix": [],
+    "nb_order": [],
+    "summary_data_VA": null
+}
